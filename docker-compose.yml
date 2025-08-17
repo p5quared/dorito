@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  python-service:
+    build:
+      context: ./python-service
+      dockerfile: Dockerfile
+    container_name: my-python-service
+    environment:
+      - SERVICE_NAME=python-service
+      - SLEEP_INTERVAL=10
+    volumes:
+      # Optional: mount for development
+      - ./python-service:/app
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # Example of another service
+  # web-service:
+  #   build:
+  #     context: ./web-service
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "8080:80"
+  #   networks:
+  #     - app-network
+
+networks:
+  app-network:
+    driver: bridge
