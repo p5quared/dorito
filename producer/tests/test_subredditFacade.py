@@ -1,5 +1,5 @@
 import pytest
-from main import SubredditFacade
+from producer.reddit import SubredditFacade
 
 THE_GOOD_WORD = "BANANA"
 
