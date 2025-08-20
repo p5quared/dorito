@@ -9,7 +9,7 @@ class Config:
     client_secret: str = os.getenv("REDDIT_SECRET", "MISSING SECRET")
     redirect_uri: str = os.getenv("REDDIT_REDIRECT_URI", "MISSING REDIRECT")
     user_agent: str = os.getenv("REDDIT_USER_AGENT", "MISSING AGENT")
-    queue_url: str = os.getenv("SQS_QUEUE_URL", "MISSING QUEUE URL")
+    queue_url: str = os.getenv("DATA_QUEUE_URL", "MISSING QUEUE URL")
     aws_region: str = os.getenv("AWS_REGION", "us-east-2")
 
 
