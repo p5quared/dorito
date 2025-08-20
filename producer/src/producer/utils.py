@@ -10,6 +10,8 @@ class Config:
     redirect_uri: str = os.getenv("REDDIT_REDIRECT_URI", "MISSING REDIRECT")
     user_agent: str = os.getenv("REDDIT_USER_AGENT", "MISSING AGENT")
     queue_url: str = os.getenv("SQS_QUEUE_URL", "MISSING QUEUE URL")
+    aws_region: str = os.getenv("AWS_REGION", "us-east-2")
+
 
 class LoggingMixin:
     @property
@@ -32,4 +34,3 @@ class LoggingMixin:
 
     def log_warning(self, message: str, *args, **kwargs):
         self.logger.warning(message, *args, **kwargs)
-

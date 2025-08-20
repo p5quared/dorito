@@ -1,34 +1,37 @@
+import random
 from producer.utils import Config, LoggingMixin
-from producer.reddit import SubredditFacade, PostData, CommentData
-from producer.queue import SQSProcessingQueue, CountQueueFacade
+from producer.reddit import FINANCE_SUBREDDITS, SubredditFacade, PostData, CommentData
+from producer.queue import OutputAdapter, CountQueueFacade, ProcessingQueue
 
-class ProdProducerApplication(SQSProcessingQueue, LoggingMixin):
-    subreddits = ["wallstreetbets", "stocks", "Bogleheads"]
 
+class ProducerApplication(OutputAdapter, LoggingMixin):
     def crawl_hot(self):
-        self.log_info("Connecting to Queue")
-        super().connect_queue()
-
-        self.log_info("Starting Producer Application")
+        super().log_info("Starting Producer Application")
         while True:
-            for subreddit in self.subreddits:
-                reddit = SubredditFacade(subreddit)
-                posts = reddit.get_hot_submissions(limit=5)
-                to_process = []
-                for post in posts:
-                    post_data = PostData(post)
-                    to_process.append(post_data)
-
-                    comments = reddit.get_all_comments_from_submission(post)
-                    for comment in comments:
-                        comment_data = CommentData(comment)
-                        to_process.append(comment_data)
-                if to_process:
-                    super().put_messages(to_process)
+            next_subreddit = random.choice(FINANCE_SUBREDDITS)
+            reddit = SubredditFacade(next_subreddit)
+            posts = reddit.get_hot_submissions(limit=25)
+            for post in posts:
+                super().send(PostData(post).to_dict())
+                comments = reddit.get_all_comments_from_submission(post)
+                for comment in comments:
+                    super().send(CommentData(comment).to_dict())
+            super().log_info(f"Finished processing {next_subreddit}...")
 
 
-class LocalTestProducerApplication(ProdProducerApplication, CountQueueFacade):
-    "Prints messages that are produced"
+class ProdProducerApplication(ProducerApplication, ProcessingQueue):
+    "Production application that processes messages using SQS"
+
+
+class LocalTestProducerApplication(ProducerApplication, CountQueueFacade):
+    def __init__(self):
+        super().__init__()
+        self.connect_queue()
+        super().log_info("Application initialized")
+        super().log_info("Environment:")
+        for attr, value in vars(self).items():
+            super().log_info(f"{attr}: {value}")
+
     pass
 
 

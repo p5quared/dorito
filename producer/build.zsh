@@ -1,1 +1,1 @@
-docker build -t dorito_producer .
+docker build -t producer .
