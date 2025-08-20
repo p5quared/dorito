@@ -6,5 +6,4 @@ WORKDIR /app
 
 RUN uv sync --locked
 
-# Presuming there is a `my_app` command provided by the project
-CMD ["uv", "run", "main.py"]
+CMD ["uv", "run", "producer"]

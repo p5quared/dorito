@@ -4,6 +4,17 @@ import itertools
 
 from producer.utils import Config, LoggingMixin
 
+FINANCE_SUBREDDITS = [
+    "finance",
+    "wallstreetbets",
+    "stocks",
+    "Bogleheads",
+    "stocks",
+    "algotrading",
+    "investing",
+]
+
+
 class PrawClient(Config):
     reddit: praw.Reddit
 
@@ -30,9 +41,7 @@ class SubredditFacade(PrawClient, LoggingMixin):
         posts = self.reddit.subreddit(self.subreddit).hot(limit=limit)
         return itertools.islice(posts, limit)
 
-    def get_all_comments_from_submission(
-        self, submission: Submission
-    ) -> list[Comment]:
+    def get_all_comments_from_submission(self, submission: Submission) -> list[Comment]:
         self.log_info(f"Fetching all comments from submission: {submission.id}")
         submission.comments.replace_more(limit=None)
         return [
@@ -80,4 +89,3 @@ class CommentData:
             "permalink": self.permalink,
             "created_utc": self.created_utc,
         }
-
