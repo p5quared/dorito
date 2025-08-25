@@ -2,10 +2,12 @@ import praw
 from praw.models import Submission, Comment
 import itertools
 
-from producer.utils import Config, LoggingMixin
+from shared.utils import Config, LoggingMixin
 
 FINANCE_SUBREDDITS = [
     "finance",
+    "personalfinance",
+    "CryptoCurrency",
     "wallstreetbets",
     "stocks",
     "Bogleheads",
@@ -25,9 +27,8 @@ class PrawClient(Config):
             client_secret=self.client_secret,
             redirect_uri=self.redirect_uri,
             user_agent=self.user_agent,
-            ratelimit_seconds=120,
+            ratelimit_seconds=600,
         )
-
 
 class SubredditFacade(PrawClient, LoggingMixin):
     def __init__(self, subreddit):
@@ -50,42 +51,3 @@ class SubredditFacade(PrawClient, LoggingMixin):
             if isinstance(comment, Comment)
         ]
 
-
-class PostData:
-    def __init__(self, submission: Submission):
-        self.id = submission.id
-        self.title = submission.title
-        self.score = submission.score
-        self.permalink = submission.permalink
-        self.created_utc = submission.created_utc
-
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "title": self.title,
-            "score": self.score,
-            "permalink": self.permalink,
-            "created_utc": self.created_utc,
-        }
-
-
-class CommentData:
-    def __init__(self, comment: Comment):
-        self.id = comment.id
-        self.submission_id = comment.submission.id if comment.submission else "unknown"
-        self.parent_id = comment.parent_id if comment.parent_id else "unknown"
-        self.body = comment.body
-        self.score = comment.score
-        self.permalink = comment.permalink
-        self.created_utc = comment.created_utc
-
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "submission_id": self.submission_id,
-            "parent_id": self.parent_id,
-            "body": self.body,
-            "score": self.score,
-            "permalink": self.permalink,
-            "created_utc": self.created_utc,
-        }
