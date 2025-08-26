@@ -1,68 +1,139 @@
-from consumer.processor import Processor, RedditDataProcessor
-from consumer.utils import LocalCSVWriter, Writer
-from shared.io import MessageSource, SQSStrategy
+from .processor import FinancialRelevanceProcessor
+from .utils import CSVDataWriter
+from shared.io import SQSStrategy
 from shared.types import deserialize_reddit_data, get_post_comment_csv_columns
-from shared.utils import Config, LoggingMixin
+from shared.interfaces import (
+    MessageSource,
+    DataProcessor,
+    DataWriter,
+    Logger,
+    ConfigProvider,
+)
+from shared.container import DIContainer
 
 
-class ConsumerApplication(MessageSource, Processor, LoggingMixin):
-    def __init__(self, w: Writer):
-        self.writer = w
-        super().__init__()
+class ConsumerApplication:
+    """Main application for consuming and processing Reddit data"""
 
-    def run(self):
-        super().log_info("Starting Consumer Application")
+    def __init__(
+        self,
+        message_source: MessageSource,
+        processor: DataProcessor,
+        writer: DataWriter,
+        logger: Logger,
+    ):
+        self._message_source = message_source
+        self._processor = processor
+        self._writer = writer
+        self._logger = logger
+
+    def run(self) -> None:
+        """Run the consumer application"""
+        self._logger.info("Starting Consumer Application")
         try:
             self._loop()
         except Exception as e:
-            super().log_error(f"An error occurred: {e}")
+            self._logger.error(f"An error occurred: {e}")
+            raise
         finally:
-            super().log_info("Shutting down Consumer Application")
-            self.writer.flush()
+            self._logger.info("Shutting down Consumer Application")
+            self._writer.flush()
 
-    def _loop(self):
+    def _loop(self) -> None:
+        """Main processing loop"""
         processed_count = 0
-        for message in super().messages:
-            data = deserialize_reddit_data(message["Body"])
-            if result := super().process(data):
-                self.writer.write(result)
-            super().delete_message(message)
-            processed_count += 1
-            if processed_count % 100 == 0:
-                super().log_info(f"Processed {processed_count} messages...")
+
+        try:
+            for message in self._message_source.messages:
+                try:
+                    data = deserialize_reddit_data(message["Body"])
+                    result = self._processor.process(data)
+
+                    if result:  # Only write non-empty results
+                        self._writer.write(result)
+
+                    self._message_source.delete_message(message)
+                    processed_count += 1
+
+                    if processed_count % 100 == 0:
+                        self._logger.info(f"Processed {processed_count} messages...")
+
+                except Exception as e:
+                    self._logger.error(f"Error processing message: {e}")
+                    # Still delete the message to avoid reprocessing bad data
+                    self._message_source.delete_message(message)
+
+        except KeyboardInterrupt:
+            self._logger.info("Received interrupt signal, shutting down gracefully...")
+        except Exception as e:
+            self._logger.error(f"Fatal error in processing loop: {e}")
+            raise
 
 
-class LocalConsumerApplication(ConsumerApplication, SQSStrategy, RedditDataProcessor):
-    def __init__(self, w: Writer):
-        super().__init__(w=w)
-        super().log_info("Initialized LocalConsumerApplication")
+# Legacy classes - deprecated, use factory functions instead
+class LocalConsumerApplication(ConsumerApplication):
+    """Deprecated - use create_local_consumer instead"""
 
-    def run(self):
-        super().log_info("Running in Local Mode")
-        super().run()
+    pass
 
 
-class ContainerConsumerApplication(
-    ConsumerApplication, RedditDataProcessor, SQSStrategy
-):
-    def __init__(self, w: Writer):
-        super().__init__(w=w)
-        super().log_info("Initialized ProdConsumerApplication")
+class ContainerConsumerApplication(ConsumerApplication):
+    """Deprecated - use create_prod_consumer instead"""
 
-    def run(self):
-        super().log_info("Running in Production Mode")
-        super().run()
+    pass
 
 
-def app_factory(cfg):
-    w = LocalCSVWriter(
+def create_local_consumer(container: DIContainer) -> ConsumerApplication:
+    """Create local consumer application"""
+    logger = container.get(Logger)
+    config = container.get(ConfigProvider)
+
+    message_source = SQSStrategy(config, logger)
+    processor = FinancialRelevanceProcessor(logger)
+    writer = CSVDataWriter(
         "data.csv", buffer_size=5, fieldnames=get_post_comment_csv_columns()
     )
+
+    logger.info("Running in Local Mode")
+    return ConsumerApplication(message_source, processor, writer, logger)
+
+
+def create_prod_consumer(container: DIContainer) -> ConsumerApplication:
+    """Create production consumer application"""
+    logger = container.get(Logger)
+    config = container.get(ConfigProvider)
+
+    message_source = SQSStrategy(config, logger)
+    processor = FinancialRelevanceProcessor(logger)
+    writer = CSVDataWriter(
+        "data.csv", buffer_size=5, fieldnames=get_post_comment_csv_columns()
+    )
+
+    logger.info("Running in Production Mode")
+    return ConsumerApplication(message_source, processor, writer, logger)
+
+
+def app_factory(cfg) -> ConsumerApplication:
+    """Legacy factory function - deprecated"""
+    from shared.container import create_container
+
+    container = create_container()
+
     if cfg.is_prod:
-        return ContainerConsumerApplication(w)
-    return LocalConsumerApplication(w)
+        return create_prod_consumer(container)
+    return create_local_consumer(container)
 
 
 def main():
-    app = app_factory(Config())
+    """Main entry point"""
+    from shared.container import create_container
+
+    container = create_container()
+    config = container.get(ConfigProvider)
+
+    if config.is_prod:
+        app = create_prod_consumer(container)
+    else:
+        app = create_local_consumer(container)
+
     app.run()

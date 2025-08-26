@@ -1,56 +1,82 @@
 import re
 import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
+from typing import Any, Dict
 from shared.types import CommentData, PostData
-from shared.utils import LoggingMixin
+from shared.interfaces import DataProcessor, Logger
 
 
-class Writer:
-    def save(self, data):
-        return None
+# Writer and Processor interfaces are now in shared.interfaces
 
 
-class Processor:
-    def process(self, data) -> dict:
-        return {}
+class PrintProcessor(DataProcessor):
+    """Simple processor that logs data"""
 
+    def __init__(self, logger: Logger):
+        self._logger = logger
 
-class PrintProcessor(Processor, LoggingMixin):
-    def process(self, data):
-        super().log_info(f"Processing message: {data}")
-        return data
-
-
-class RedditDataProcessor(Processor, LoggingMixin):
-    def __init__(self):
-        super().__init__()
-        self.tokenizer = AutoTokenizer.from_pretrained("ProsusAI/finbert")
-        self.model = AutoModelForSequenceClassification.from_pretrained(
-            "ProsusAI/finbert"
-        )
-        super().log_info("Initialized RedditDataProcessor")
-
-    def process(self, data: CommentData | PostData) -> dict:
-        if not data.body or data.body.strip() == "":
-            super().log_debug("Post has no body, skipping...")
-            return {}
-
-        if not self.is_financially_relevant(data.body):
-            super().log_debug("Post has no financial relevancy")
-            return {}
-        super().log_debug(f"\n{data.body}\n")
+    def process(self, data: CommentData | PostData) -> Dict[str, Any]:
+        self._logger.info(f"Processing message: {data}")
         return data.to_dict()  # pyright: ignore
 
-    def is_financially_relevant(self, text: str) -> bool:
+
+class FinancialRelevanceProcessor(DataProcessor):
+    """Processor that filters content for financial relevance using FinBERT"""
+
+    def __init__(
+        self,
+        logger: Logger,
+        model_name: str = "ProsusAI/finbert",
+        threshold: float = 0.8,
+    ):
+        self._logger = logger
+        self._threshold = threshold
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
+        self._logger.info(
+            f"Initialized FinancialRelevanceProcessor with model: {model_name}"
+        )
+
+    def process(self, data: CommentData | PostData) -> Dict[str, Any]:
+        if not data.body or data.body.strip() == "":
+            self._logger.debug("Post has no body, skipping...")
+            return {}
+
+        if not self._is_financially_relevant(data.body):
+            self._logger.debug("Post has no financial relevancy")
+            return {}
+
+        self._logger.debug(f"\n{data.body}\n")
+        return data.to_dict()  # pyright: ignore
+
+    def _is_financially_relevant(self, text: str) -> bool:
+        """Check if text is financially relevant using FinBERT"""
         inputs = self.tokenizer(
             text, return_tensors="pt", truncation=True, max_length=512
         )
         outputs = self.model(**inputs)
         score = torch.nn.functional.softmax(outputs.logits, dim=1)[0][1]
-        return score >= 0.8  # pyright: ignore (it works! I've seen it work!  I swear!!!!)
+        return float(score) >= self._threshold
 
     @staticmethod
     def get_sentences(text: str) -> list[str]:
+        """Split text into sentences"""
         sentence_endings = re.compile(r"[.!?]")
         sentences = sentence_endings.split(text)
         return [s.strip() for s in sentences if s.strip()]
+
+
+# Legacy class for backward compatibility
+class RedditDataProcessor(FinancialRelevanceProcessor):
+    """Deprecated - use FinancialRelevanceProcessor instead"""
+
+    def __init__(self, logger: Logger = None):
+        if logger is None:
+            from shared.utils import LoggingMixin
+
+            logger = LoggingMixin()
+        super().__init__(logger)
+
+    def is_financially_relevant(self, text: str) -> bool:
+        """Legacy method"""
+        return self._is_financially_relevant(text)

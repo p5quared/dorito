@@ -1,8 +1,9 @@
 import praw
 from praw.models import Submission, Comment
 import itertools
+from typing import Iterator
 
-from shared.utils import Config, LoggingMixin
+from shared.interfaces import ConfigProvider, Logger, DataSource
 
 FINANCE_SUBREDDITS = [
     "finance",
@@ -11,43 +12,74 @@ FINANCE_SUBREDDITS = [
     "wallstreetbets",
     "stocks",
     "Bogleheads",
-    "stocks",
     "algotrading",
     "investing",
 ]
 
 
-class PrawClient(Config):
-    reddit: praw.Reddit
+class PrawClient:
+    """Reddit API client wrapper"""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, config: ConfigProvider):
+        self._config = config
         self.reddit = praw.Reddit(
-            client_id=self.client_id,
-            client_secret=self.client_secret,
-            redirect_uri=self.redirect_uri,
-            user_agent=self.user_agent,
+            client_id=config.reddit_client_id,
+            client_secret=config.reddit_client_secret,
+            redirect_uri=config.reddit_redirect_uri,
+            user_agent=config.reddit_user_agent,
             ratelimit_seconds=600,
         )
 
 
-class SubredditFacade(PrawClient, LoggingMixin):
-    def __init__(self, subreddit):
-        super().__init__()
-        self.subreddit = subreddit
+class SubredditDataSource(DataSource):
+    """Data source for Reddit subreddit content"""
 
-    def get_hot_submissions(self, limit: int = 25):
-        self.log_info(
-            f"Fetching hot submissions from subreddit: {self.subreddit} with limit: {limit}"
+    def __init__(self, subreddit: str, reddit_client: PrawClient, logger: Logger):
+        self._subreddit = subreddit
+        self._reddit_client = reddit_client
+        self._logger = logger
+
+    def get_content(self, limit: int = 25) -> Iterator[Submission]:
+        """Get hot submissions from the subreddit"""
+        self._logger.info(
+            f"Fetching hot submissions from subreddit: {self._subreddit} with limit: {limit}"
         )
-        posts = self.reddit.subreddit(self.subreddit).hot(limit=limit)
+        posts = self._reddit_client.reddit.subreddit(self._subreddit).hot(limit=limit)
         return itertools.islice(posts, limit)
 
-    def get_all_comments_from_submission(self, submission: Submission) -> list[Comment]:
-        self.log_info(f"Fetching all comments from submission: {submission.id}")
+    def get_comments_from_submission(self, submission: Submission) -> list[Comment]:
+        """Get all comments from a submission"""
+        self._logger.info(f"Fetching all comments from submission: {submission.id}")
         submission.comments.replace_more(limit=None)
         return [
             comment
             for comment in submission.comments.list()
             if isinstance(comment, Comment)
         ]
+
+
+class SubredditFacade(SubredditDataSource):
+    """Legacy facade - deprecated, use SubredditDataSource instead"""
+
+    def __init__(
+        self, subreddit: str, config: ConfigProvider = None, logger: Logger = None
+    ):
+        # For backward compatibility
+        from shared.utils import Config, LoggingMixin
+
+        if config is None:
+            config = Config()
+        if logger is None:
+            logger = LoggingMixin(config)
+
+        reddit_client = PrawClient(config)
+        super().__init__(subreddit, reddit_client, logger)
+        self.subreddit = subreddit  # Legacy property
+
+    def get_hot_submissions(self, limit: int = 25):
+        """Legacy method"""
+        return self.get_content(limit)
+
+    def get_all_comments_from_submission(self, submission: Submission) -> list[Comment]:
+        """Legacy method"""
+        return self.get_comments_from_submission(submission)
