@@ -18,9 +18,9 @@ jobs:
         run: uv python install 3.12
 
       - name: Install dependencies
-        working-directory: ./producer
+        working-directory: ./ingestion
         run: uv sync
 
       - name: Run tests
-        working-directory: ./producer
+        working-directory: ./ingestion
         run: uv run pytest

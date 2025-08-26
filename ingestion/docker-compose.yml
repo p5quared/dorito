@@ -1,0 +1,18 @@
+services:
+  producer:
+    build: .
+    command: ["uv", "run", "producer"]
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      - ~/.aws:/root/.aws:ro
+
+  consumer:
+    build: .
+    command: ["uv", "run", "consumer"]
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      - ~/.aws:/root/.aws:ro
