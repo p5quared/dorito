@@ -19,7 +19,7 @@ echo "Image tag: ${IMAGE_TAG}"
 # Step 1: Build Docker image
 echo "📦 Building Docker image..."
 cd "${DOCKERFILE_PATH}"
-docker build -t "${DOCKER_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG}" -t "${DOCKER_USERNAME}/${IMAGE_NAME}:latest" .
+docker build --platform linux/arm64 -t "${DOCKER_USERNAME}/${IMAGE_NAME}:${IMAGE_TAG}" -t "${DOCKER_USERNAME}/${IMAGE_NAME}:latest" .
 cd ..
 
 # Step 2: Push to Docker Hub
