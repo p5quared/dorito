@@ -3,15 +3,17 @@ version: '3.8'
 services:
   python-service:
     build:
-      context: ./python-service
+      context: ./ingestion
       dockerfile: Dockerfile
     container_name: my-python-service
     environment:
       - SERVICE_NAME=python-service
       - SLEEP_INTERVAL=10
+    env_file:
+    - ./ingestion/.env
     volumes:
       # Optional: mount for development
-      - ./python-service:/app
+      - ./ingestion:/app
     restart: unless-stopped
     networks:
       - app-network
