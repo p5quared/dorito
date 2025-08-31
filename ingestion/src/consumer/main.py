@@ -9,7 +9,7 @@ from shared.interfaces import (
     Logger,
     ConfigProvider,
 )
-from shared.container import DIContainer
+from shared.container import DIContainer, create_container
 
 
 class ConsumerApplication:
@@ -68,20 +68,8 @@ class ConsumerApplication:
         except Exception as e:
             self._logger.error(f"Fatal error in processing loop: {e}")
             raise
-
-
-# Legacy classes - deprecated, use factory functions instead
-class LocalConsumerApplication(ConsumerApplication):
-    """Deprecated - use create_local_consumer instead"""
-
-    pass
-
-
-class ContainerConsumerApplication(ConsumerApplication):
-    """Deprecated - use create_prod_consumer instead"""
-
-    pass
-
+        finally:
+            self._writer.flush()
 
 def create_local_consumer(container: DIContainer) -> ConsumerApplication:
     """Create local consumer application"""
@@ -112,21 +100,7 @@ def create_prod_consumer(container: DIContainer) -> ConsumerApplication:
     logger.info("Running in Production Mode")
     return ConsumerApplication(message_source, processor, writer, logger)
 
-
-def app_factory(cfg) -> ConsumerApplication:
-    """Legacy factory function - deprecated"""
-    from shared.container import create_container
-
-    container = create_container()
-
-    if cfg.is_prod:
-        return create_prod_consumer(container)
-    return create_local_consumer(container)
-
-
 def main():
-    """Main entry point"""
-    from shared.container import create_container
 
     container = create_container()
     config = container.get(ConfigProvider)

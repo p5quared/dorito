@@ -59,8 +59,8 @@ class RedditScraperApplication:
                     comment_data = CommentData.from_comment(comment)
                     self._message_sink.send_message(comment_data.to_json())
 
-                self._logger.info(f"Finished processing post: {post.id}")
-                self._logger.info(
+                self._logger.debug(f"Finished processing post: {post.id}")
+                self._logger.debug(
                     f"Total content items processed so far: {content_count}"
                 )
 
