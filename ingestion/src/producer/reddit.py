@@ -27,7 +27,7 @@ class PrawClient:
             client_secret=config.reddit_client_secret,
             redirect_uri=config.reddit_redirect_uri,
             user_agent=config.reddit_user_agent,
-            ratelimit_seconds=600,
+            ratelimit_seconds=1200,
         )
 
 
