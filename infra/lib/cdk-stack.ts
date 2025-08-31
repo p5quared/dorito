@@ -1,4 +1,4 @@
-import { CfnOutput, Stack, StackProps } from 'aws-cdk-lib';
+import { CfnOutput, Duration, Stack, StackProps } from 'aws-cdk-lib';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
@@ -15,11 +15,15 @@ export class DoritoStack extends Stack {
 	constructor(scope: Construct, id: string, props?: DoritoStackProps) {
 		super(scope, id, props);
 
+		// Validate required environment variables
+		this.validateRequiredEnvironmentVariables();
+
 		const vpc = new ec2.Vpc(this, 'DoritoVpc');
 		const cluster = new ecs.Cluster(this, 'DoritoCluster', { vpc });
 
 		const dataQueue = new sqs.Queue(this, 'DataQueue', {
 			queueName: 'data-queue',
+			visibilityTimeout: Duration.seconds(300),
 		});
 
 		const imageTag = props?.imageTag ?? 'latest';
@@ -46,7 +50,7 @@ export class DoritoStack extends Stack {
 					streamPrefix: 'dorito-producer',
 				}),
 			},
-			schedule: events.Schedule.expression('rate(1 day)'),
+			schedule: events.Schedule.expression('rate(12 hours)'),
 		});
 
 		scraperTask.taskDefinition.addToTaskRolePolicy(
@@ -61,5 +65,26 @@ export class DoritoStack extends Stack {
 			value: dataQueue.queueUrl,
 			description: 'Data Queue URL',
 		})
+	}
+
+	private validateRequiredEnvironmentVariables(): void {
+		const requiredEnvVars = [
+			'REDDIT_CLIENT_ID',
+			'REDDIT_SECRET',
+			'REDDIT_REDIRECT_URI',
+			'REDDIT_USER_AGENT'
+		];
+
+		const missingVars = requiredEnvVars.filter(varName => {
+			const value = process.env[varName];
+			return !value || value.trim() === '';
+		});
+
+		if (missingVars.length > 0) {
+			throw new Error(
+				`Missing required environment variables for Reddit API: ${missingVars.join(', ')}. ` +
+				'Please ensure these are set before deploying the stack.'
+			);
+		}
 	}
 }
