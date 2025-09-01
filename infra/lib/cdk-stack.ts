@@ -16,10 +16,9 @@ export class DoritoStack extends Stack {
 		super(scope, id, props);
 
 		// Validate required environment variables
-		this.validateRequiredEnvironmentVariables();
+		// this.validateRequiredEnvironmentVariables();
 
-		const vpc = new ec2.Vpc(this, 'DoritoVpc');
-		const cluster = new ecs.Cluster(this, 'DoritoCluster', { vpc });
+		const cluster = new ecs.Cluster(this, 'DoritoCluster');
 
 		const dataQueue = new sqs.Queue(this, 'DataQueue', {
 			queueName: 'data-queue',
@@ -67,24 +66,24 @@ export class DoritoStack extends Stack {
 		})
 	}
 
-	private validateRequiredEnvironmentVariables(): void {
-		const requiredEnvVars = [
-			'REDDIT_CLIENT_ID',
-			'REDDIT_SECRET',
-			'REDDIT_REDIRECT_URI',
-			'REDDIT_USER_AGENT'
-		];
-
-		const missingVars = requiredEnvVars.filter(varName => {
-			const value = process.env[varName];
-			return !value || value.trim() === '';
-		});
-
-		if (missingVars.length > 0) {
-			throw new Error(
-				`Missing required environment variables for Reddit API: ${missingVars.join(', ')}. ` +
-				'Please ensure these are set before deploying the stack.'
-			);
-		}
-	}
+	// private validateRequiredEnvironmentVariables(): void {
+	// 	const requiredEnvVars = [
+	// 		'REDDIT_CLIENT_ID',
+	// 		'REDDIT_SECRET',
+	// 		'REDDIT_REDIRECT_URI',
+	// 		'REDDIT_USER_AGENT'
+	// 	];
+	//
+	// 	const missingVars = requiredEnvVars.filter(varName => {
+	// 		const value = process.env[varName];
+	// 		return !value || value.trim() === '';
+	// 	});
+	//
+	// 	if (missingVars.length > 0) {
+	// 		throw new Error(
+	// 			`Missing required environment variables for Reddit API: ${missingVars.join(', ')}. ` +
+	// 			'Please ensure these are set before deploying the stack.'
+	// 		);
+	// 	}
+	// }
 }
