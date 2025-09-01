@@ -56,30 +56,3 @@ class SubredditDataSource(DataSource):
             for comment in submission.comments.list()
             if isinstance(comment, Comment)
         ]
-
-
-class SubredditFacade(SubredditDataSource):
-    """Legacy facade - deprecated, use SubredditDataSource instead"""
-
-    def __init__(
-        self, subreddit: str, config: ConfigProvider = None, logger: Logger = None
-    ):
-        # For backward compatibility
-        from shared.utils import Config, LoggingMixin
-
-        if config is None:
-            config = Config()
-        if logger is None:
-            logger = LoggingMixin(config)
-
-        reddit_client = PrawClient(config)
-        super().__init__(subreddit, reddit_client, logger)
-        self.subreddit = subreddit  # Legacy property
-
-    def get_hot_submissions(self, limit: int = 25):
-        """Legacy method"""
-        return self.get_content(limit)
-
-    def get_all_comments_from_submission(self, submission: Submission) -> list[Comment]:
-        """Legacy method"""
-        return self.get_comments_from_submission(submission)

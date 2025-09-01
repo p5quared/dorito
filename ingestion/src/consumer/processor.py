@@ -6,9 +6,6 @@ from shared.types import CommentData, PostData
 from shared.interfaces import DataProcessor, Logger
 
 
-# Writer and Processor interfaces are now in shared.interfaces
-
-
 class PrintProcessor(DataProcessor):
     """Simple processor that logs data"""
 
@@ -64,19 +61,3 @@ class FinancialRelevanceProcessor(DataProcessor):
         sentence_endings = re.compile(r"[.!?]")
         sentences = sentence_endings.split(text)
         return [s.strip() for s in sentences if s.strip()]
-
-
-# Legacy class for backward compatibility
-class RedditDataProcessor(FinancialRelevanceProcessor):
-    """Deprecated - use FinancialRelevanceProcessor instead"""
-
-    def __init__(self, logger: Logger = None):
-        if logger is None:
-            from shared.utils import LoggingMixin
-
-            logger = LoggingMixin()
-        super().__init__(logger)
-
-    def is_financially_relevant(self, text: str) -> bool:
-        """Legacy method"""
-        return self._is_financially_relevant(text)
