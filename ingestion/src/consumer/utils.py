@@ -4,9 +4,6 @@ from typing import Dict, Any, List
 from shared.interfaces import DataWriter
 
 
-# Writer interface is now in shared.interfaces as DataWriter
-
-
 class CSVDataWriter(DataWriter):
     """Writer that outputs data to CSV files"""
 
@@ -50,15 +47,3 @@ class CSVDataWriter(DataWriter):
     def _clean_text_for_csv(self, text: str) -> str:
         """Clean text for CSV output"""
         return text.replace("\n", " ").replace("\r", " ").replace(",", " ").strip()
-
-
-# Legacy class for backward compatibility
-class LocalCSVWriter(CSVDataWriter):
-    """Deprecated - use CSVDataWriter instead"""
-
-    def __init__(self, fname: str, buffer_size: int, fieldnames: List[str]):
-        super().__init__(fname, buffer_size, fieldnames)
-        self.fname = fname  # Legacy property
-        self.fieldnames = fieldnames  # Legacy property
-        self.buffer_size = buffer_size  # Legacy property
-        self.buffer = self._buffer  # Legacy property alias

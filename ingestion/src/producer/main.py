@@ -5,7 +5,7 @@ from .reddit import FINANCE_SUBREDDITS, SubredditDataSource, PrawClient
 from shared.io import PrintStrategy, SQSStrategy
 from shared.types import CommentData, PostData
 from shared.interfaces import MessageSink, Logger, ConfigProvider
-from shared.container import DIContainer
+from shared.container import DIContainer, create_container
 
 
 class RedditScraperApplication:
@@ -68,19 +68,6 @@ class RedditScraperApplication:
             self._logger.info(f"Total content items processed so far: {content_count}")
 
 
-# Legacy classes - deprecated, use factory functions instead
-class ProdScraperApplication(RedditScraperApplication):
-    """Deprecated - use create_prod_application instead"""
-
-    pass
-
-
-class LocalScraperApplication(RedditScraperApplication):
-    """Deprecated - use create_local_application instead"""
-
-    pass
-
-
 def create_prod_application(container: DIContainer) -> RedditScraperApplication:
     """Create production scraper application"""
     config = container.get(ConfigProvider)
@@ -103,21 +90,8 @@ def create_local_application(container: DIContainer) -> RedditScraperApplication
     logger.info("Running in Local Mode")
     return RedditScraperApplication(message_sink, reddit_client, logger)
 
-
-def app_factory(cfg) -> RedditScraperApplication:
-    """Legacy factory function - deprecated"""
-    from shared.container import create_container
-
-    container = create_container()
-
-    if cfg.is_prod:
-        return create_prod_application(container)
-    return create_local_application(container)
-
-
 def main():
     """Main entry point"""
-    from shared.container import create_container
 
     container = create_container()
     config = container.get(ConfigProvider)
