@@ -262,7 +262,7 @@ class TestFinancialRelevanceProcessor:
         logger = mock_processor_dependencies["logger"]
 
         assert processor._logger is logger
-        assert processor._threshold == 0.8
+        assert processor._threshold == 0.5
         logger.info.assert_called_once()
 
     def test_processor_handles_empty_content(self, mock_processor_dependencies):
@@ -343,38 +343,39 @@ class TestCSVDataWriter:
     def test_csv_writer_initialization(self, temp_csv_file):
         """Test CSV writer initialization"""
         writer = CSVDataWriter(
-            str(temp_csv_file), buffer_size=2, fieldnames=["id", "body", "score"]
+            str(temp_csv_file), fieldnames=["id", "body", "score"]
         )
 
         assert writer._filename == str(temp_csv_file)
-        assert writer._buffer_size == 2
         assert writer._fieldnames == ["id", "body", "score"]
-        assert len(writer._buffer) == 0
+        assert writer._header_written == False
 
-    def test_csv_writer_buffers_data(self, temp_csv_file):
-        """Test CSV writer buffers data before writing"""
+    def test_csv_writer_writes_immediately(self, temp_csv_file):
+        """Test CSV writer writes data immediately"""
         writer = CSVDataWriter(
-            str(temp_csv_file), buffer_size=2, fieldnames=["id", "body", "score"]
+            str(temp_csv_file), fieldnames=["id", "body", "score"]
         )
 
-        # Write one item - should not flush yet
+        # Write one item - should write immediately
         writer.write({"id": "1", "body": "test", "score": 10})
-        assert len(writer._buffer) == 1
-        assert not temp_csv_file.exists()
-
-        # Write second item - should trigger flush
-        writer.write({"id": "2", "body": "test2", "score": 20})
-        assert len(writer._buffer) == 0
         assert temp_csv_file.exists()
+        assert writer._header_written == True
+
+        # Write second item - should append to file
+        writer.write({"id": "2", "body": "test2", "score": 20})
+        
+        # Check file contents
+        content = temp_csv_file.read_text()
+        lines = content.strip().split("\n")
+        assert len(lines) == 3  # header + 2 data rows
 
     def test_csv_writer_cleans_text(self, temp_csv_file):
         """Test CSV writer cleans text properly"""
         writer = CSVDataWriter(
-            str(temp_csv_file), buffer_size=1, fieldnames=["id", "body"]
+            str(temp_csv_file), fieldnames=["id", "body"]
         )
 
         writer.write({"id": "1", "body": "text\nwith\rnewlines,and,commas"})
-        writer.flush()
 
         content = temp_csv_file.read_text()
         assert "text with newlines and commas" in content
@@ -383,13 +384,12 @@ class TestCSVDataWriter:
     def test_csv_writer_skips_empty_data(self, temp_csv_file):
         """Test CSV writer skips empty data"""
         writer = CSVDataWriter(
-            str(temp_csv_file), buffer_size=1, fieldnames=["id", "body"]
+            str(temp_csv_file), fieldnames=["id", "body"]
         )
 
         writer.write({})  # Empty dict
         writer.write(None)  # None value
 
-        assert len(writer._buffer) == 0
         assert not temp_csv_file.exists()
 
 

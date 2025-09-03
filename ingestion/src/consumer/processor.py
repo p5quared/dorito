@@ -10,10 +10,13 @@ class PrintProcessor(DataProcessor):
     """Simple processor that logs data"""
 
     def __init__(self, logger: Logger):
+        self.n_processed = 0
         self._logger = logger
 
     def process(self, data: CommentData | PostData) -> Dict[str, Any]:
-        self._logger.info(f"Processing message: {data}")
+        self.n_processed += 1
+        # self._logger.info(f"Processing message: {data}")
+        self._logger.info(f"Processed count: {self.n_processed}\n")
         return data.to_dict()  # pyright: ignore
 
 
@@ -24,7 +27,7 @@ class FinancialRelevanceProcessor(DataProcessor):
         self,
         logger: Logger,
         model_name: str = "ProsusAI/finbert",
-        threshold: float = 0.8,
+        threshold: float = 0.5,
     ):
         self._logger = logger
         self._threshold = threshold
@@ -40,10 +43,10 @@ class FinancialRelevanceProcessor(DataProcessor):
             return {}
 
         if not self._is_financially_relevant(data.body):
-            self._logger.debug("Post has no financial relevancy")
+            self._logger.debug("Content not financially relevant, skipping...")
             return {}
 
-        self._logger.debug(f"\n{data.body}\n")
+        # self._logger.info(f"\ngood:\n{data.body}\n")
         return data.to_dict()  # pyright: ignore
 
     def _is_financially_relevant(self, text: str) -> bool:
@@ -53,6 +56,10 @@ class FinancialRelevanceProcessor(DataProcessor):
         )
         outputs = self.model(**inputs)
         score = torch.nn.functional.softmax(outputs.logits, dim=1)[0][1]
+        self._logger.info("\n")
+        self._logger.info(f"score: {score}")
+        self._logger.info(f"text: {text}")
+        self._logger.info("\n")
         return float(score) >= self._threshold
 
     @staticmethod

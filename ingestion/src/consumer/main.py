@@ -1,4 +1,4 @@
-from .processor import FinancialRelevanceProcessor
+from .processor import FinancialRelevanceProcessor, PrintProcessor
 from .utils import CSVDataWriter
 from shared.io import SQSStrategy
 from shared.types import deserialize_reddit_data, get_post_comment_csv_columns
@@ -37,7 +37,6 @@ class ConsumerApplication:
             raise
         finally:
             self._logger.info("Shutting down Consumer Application")
-            self._writer.flush()
 
     def _loop(self) -> None:
         """Main processing loop"""
@@ -68,8 +67,6 @@ class ConsumerApplication:
         except Exception as e:
             self._logger.error(f"Fatal error in processing loop: {e}")
             raise
-        finally:
-            self._writer.flush()
 
 def create_local_consumer(container: DIContainer) -> ConsumerApplication:
     """Create local consumer application"""
@@ -79,7 +76,7 @@ def create_local_consumer(container: DIContainer) -> ConsumerApplication:
     message_source = SQSStrategy(config, logger)
     processor = FinancialRelevanceProcessor(logger)
     writer = CSVDataWriter(
-        "data.csv", buffer_size=5, fieldnames=get_post_comment_csv_columns()
+        "data.csv", fieldnames=get_post_comment_csv_columns()
     )
 
     logger.info("Running in Local Mode")
@@ -92,9 +89,9 @@ def create_prod_consumer(container: DIContainer) -> ConsumerApplication:
     config = container.get(ConfigProvider)
 
     message_source = SQSStrategy(config, logger)
-    processor = FinancialRelevanceProcessor(logger)
+    processor = PrintProcessor(logger)
     writer = CSVDataWriter(
-        "data.csv", buffer_size=5, fieldnames=get_post_comment_csv_columns()
+        "all.csv", fieldnames=get_post_comment_csv_columns()
     )
 
     logger.info("Running in Production Mode")

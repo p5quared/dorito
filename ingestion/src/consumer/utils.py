@@ -6,43 +6,27 @@ from shared.interfaces import DataWriter
 
 class CSVDataWriter(DataWriter):
     """Writer that outputs data to CSV files"""
-
-    def __init__(self, filename: str, buffer_size: int, fieldnames: List[str]):
+    def __init__(self, filename: str, fieldnames: List[str]):
         self._filename = filename
         self._fieldnames = fieldnames
-        self._buffer_size = buffer_size
-        self._buffer: List[Dict[str, Any]] = []
+        self._header_written = False
 
     def write(self, data: Dict[str, Any]) -> None:
-        """Write data to buffer, flush if buffer is full"""
-        if not data:  # Skip empty data
+        if not data:
             return
 
-        self._buffer.append(data.copy())  # Make a copy to avoid mutations
-        if len(self._buffer) >= self._buffer_size:
-            self.flush()
+        cleaned_data = data.copy()
+        if "body" in cleaned_data and cleaned_data["body"]:
+            cleaned_data["body"] = self._clean_text_for_csv(cleaned_data["body"])
 
-    def flush(self) -> None:
-        """Flush buffered data to CSV file"""
-        if not self._buffer:
-            return
-
-        file_exists = os.path.exists(self._filename)
-        mode = "a" if file_exists else "w"
-
-        with open(self._filename, mode, newline="") as csv_file:
+        with open(self._filename, "a", newline="") as csv_file:
             writer = csv.DictWriter(csv_file, fieldnames=self._fieldnames)
-
-            if not file_exists:
+            
+            if not self._header_written:
                 writer.writeheader()
-
-            for item in self._buffer:
-                # Clean body text for CSV compatibility
-                if "body" in item and item["body"]:
-                    item["body"] = self._clean_text_for_csv(item["body"])
-                writer.writerow(item)
-
-        self._buffer.clear()
+                self._header_written = True
+            
+            writer.writerow(cleaned_data)
 
     def _clean_text_for_csv(self, text: str) -> str:
         """Clean text for CSV output"""
