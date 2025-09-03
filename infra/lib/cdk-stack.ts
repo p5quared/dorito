@@ -23,6 +23,7 @@ export class DoritoStack extends Stack {
 		const dataQueue = new sqs.Queue(this, 'DataQueue', {
 			queueName: 'data-queue',
 			visibilityTimeout: Duration.seconds(300),
+			retentionPeriod: Duration.days(7),
 		});
 
 		const imageTag = props?.imageTag ?? 'latest';
