@@ -52,11 +52,6 @@ class DataWriter(ABC):
         """Write data to storage"""
         pass
 
-    @abstractmethod
-    def flush(self) -> None:
-        """Flush any buffered data"""
-        pass
-
 
 class Logger(Protocol):
     """Protocol for logging"""
