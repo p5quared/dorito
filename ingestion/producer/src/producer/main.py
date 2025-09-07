@@ -31,8 +31,9 @@ class RedditScraperApplication(LoggingMixin):
         random.shuffle(subreddits)
 
         source_classes = map(self.create_subreddit_data_source, subreddits)
-        sources = map(lambda s: s.data(), source_classes)
-        praw_data = itertools.chain.from_iterable(sources)
+        praw_data = itertools.chain.from_iterable(
+            map(lambda s: s.data(), source_classes)
+        )
         reddit_data = map(RedditData.from_reddit_item, praw_data)
         list(map(self._message_sink.send_message, reddit_data))
 

@@ -4,6 +4,11 @@ ADD . /app
 
 WORKDIR /app
 
-RUN uv sync --locked
+# Accept build argument to specify which service to install
+ARG SERVICE=producer
 
-CMD ["uv", "run", "producer"]
+# Install only the specified service and its dependencies
+RUN uv sync --package ${SERVICE}
+
+# Default command can be overridden at runtime
+CMD uv run --package ${SERVICE} ${SERVICE}
