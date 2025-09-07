@@ -1,6 +1,5 @@
 from typing import Dict, Type, Any, Callable
-import logging
-from .interfaces import ConfigProvider, Logger
+from .interfaces import ConfigProvider
 
 
 class DIContainer:
@@ -40,24 +39,6 @@ class DIContainer:
         raise ValueError(f"Service not registered: {interface}")
 
 
-class DefaultLogger:
-    """Default logger implementation"""
-
-    def __init__(self, config: ConfigProvider):
-        self._logger = logging.getLogger(__name__)
-        logging.basicConfig(level=getattr(logging, config.log_level.upper()))
-
-    def info(self, message: str, *args, **kwargs) -> None:
-        self._logger.info(message, *args, **kwargs)
-
-    def error(self, message: str, *args, **kwargs) -> None:
-        self._logger.error(message, *args, **kwargs)
-
-    def debug(self, message: str, *args, **kwargs) -> None:
-        self._logger.debug(message, *args, **kwargs)
-
-    def warning(self, message: str, *args, **kwargs) -> None:
-        self._logger.warning(message, *args, **kwargs)
 
 
 def create_container() -> DIContainer:
@@ -69,9 +50,5 @@ def create_container() -> DIContainer:
 
     config = Config()
     container.register_singleton(ConfigProvider, config)
-
-    # Register logger
-    logger = DefaultLogger(config)
-    container.register_singleton(Logger, logger)
 
     return container

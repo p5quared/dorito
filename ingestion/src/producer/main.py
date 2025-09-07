@@ -1,94 +1,69 @@
+import itertools
 import random
 from typing import List
 
-from .reddit import FINANCE_SUBREDDITS, SubredditDataSource, PrawClient
-from shared.io import PrintStrategy, SQSStrategy
-from shared.types import CommentData, PostData
-from shared.interfaces import MessageSink, Logger, ConfigProvider
+from shared.sns import SNSFacade
+from shared.types import RedditData
+
+from .reddit import FINANCE_SUBREDDITS, PrawClient, SubredditDataSource
+from shared.io import PrintStrategy
+from shared.interfaces import RedditDataSink, ConfigProvider
 from shared.container import DIContainer, create_container
+from shared.utils import LoggingMixin
 
 
-class RedditScraperApplication:
+class RedditScraperApplication(LoggingMixin):
     """Main application for scraping Reddit data"""
 
     def __init__(
         self,
-        message_sink: MessageSink,
-        reddit_client: PrawClient,
-        logger: Logger,
-        subreddits: List[str] = [],
+        message_sink: RedditDataSink,
+        config: ConfigProvider,
     ):
+        super().__init__(config=config)
         self._message_sink = message_sink
-        self._reddit_client = reddit_client
-        self._logger = logger
-        self._subreddits = subreddits or FINANCE_SUBREDDITS.copy()
+        self._config = config
 
     def run(self) -> None:
         """Run the scraper application"""
-        self._logger.info("Starting Producer Application")
-        try:
-            self._loop()
-        except Exception as e:
-            self._logger.error(f"An error occurred: {e}")
-            raise
-
-    def _loop(self) -> None:
-        """Main processing loop"""
-        subreddits = self._subreddits.copy()
+        self.log_info("Starting Producer Application")
+        subreddits = FINANCE_SUBREDDITS.copy()
         random.shuffle(subreddits)
-        content_count = 0
 
-        for idx, subreddit_name in enumerate(subreddits):
-            self._logger.info(
-                f"Processing subreddit {idx + 1}/{len(subreddits)}: {subreddit_name}..."
-            )
+        source_classes = map(self.create_subreddit_data_source, subreddits)
+        sources = map(lambda s: s.data(), source_classes)
+        praw_data = itertools.chain.from_iterable(sources)
+        reddit_data = map(RedditData.from_reddit_item, praw_data)
+        list(map(self._message_sink.send_message, reddit_data))
 
-            data_source = SubredditDataSource(
-                subreddit_name, self._reddit_client, self._logger
-            )
-            posts = data_source.get_content(limit=25)
+        self.log_info("Producer Application Finished")
 
-            for post in posts:
-                content_count += 1
-                post_data = PostData.from_submission(post)
-                self._message_sink.send_message(post_data.to_json())
 
-                comments = data_source.get_comments_from_submission(post)
-                for comment in comments:
-                    content_count += 1
-                    comment_data = CommentData.from_comment(comment)
-                    self._message_sink.send_message(comment_data.to_json())
-
-                self._logger.debug(f"Finished processing post: {post.id}")
-                self._logger.debug(
-                    f"Total content items processed so far: {content_count}"
-                )
-
-            self._logger.info(f"Finished processing: {subreddit_name}...")
-            self._logger.info(f"Total content items processed so far: {content_count}")
-
+    def create_subreddit_data_source(self, n: str) -> SubredditDataSource:
+        reddit_client = PrawClient(self._config)
+        scrape_limit = 25
+        return SubredditDataSource(n, reddit_client, self._config, scrape_limit)
 
 def create_prod_application(container: DIContainer) -> RedditScraperApplication:
     """Create production scraper application"""
     config = container.get(ConfigProvider)
-    logger = container.get(Logger)
 
-    message_sink = SQSStrategy(config, logger)
-    reddit_client = PrawClient(config)
+    message_sink = SNSFacade(SNSFacade.SOURCE.REDDIT, config)
 
-    logger.info("Running in Production Mode")
-    return RedditScraperApplication(message_sink, reddit_client, logger)
+    app = RedditScraperApplication(message_sink, config)
+    app.log_info("Running in Production Mode")
+    return app
 
 
 def create_local_application(container: DIContainer) -> RedditScraperApplication:
     """Create local scraper application"""
-    logger = container.get(Logger)
+    config = container.get(ConfigProvider)
 
-    message_sink = PrintStrategy(logger)
-    reddit_client = PrawClient(container.get(ConfigProvider))
+    message_sink = PrintStrategy(config)
 
-    logger.info("Running in Local Mode")
-    return RedditScraperApplication(message_sink, reddit_client, logger)
+    app = RedditScraperApplication(message_sink, config)
+    app.log_info("Running in Local Mode")
+    return app
 
 def main():
     """Main entry point"""

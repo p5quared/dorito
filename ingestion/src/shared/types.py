@@ -4,12 +4,44 @@ from dataclasses import dataclass, fields
 from praw.models import Comment, Submission
 
 
+@dataclass
+class RedditData:
+    submission_id: str
+    subreddit: str
+    body: str
+
+    @classmethod
+    def from_submission(cls, submission: Submission):
+        return cls(
+            submission_id=submission.id,
+            subreddit=submission.subreddit.display_name,
+            body=submission.selftext
+        )
+
+    @classmethod
+    def from_comment(cls, comment: Comment):
+        return cls(
+            submission_id=comment.submission.id if comment.submission else "unknown",
+            subreddit=comment.subreddit.display_name if comment.subreddit else "unknown",
+            body=comment.body
+        )
+
+    @classmethod
+    def from_reddit_item(cls, item: Submission | Comment):
+        """Convert from either a Submission or Comment"""
+        if isinstance(item, Submission):
+            return cls.from_submission(item)
+        elif isinstance(item, Comment):
+            return cls.from_comment(item)
+        else:
+            raise ValueError(f"Unsupported Reddit item type: {type(item)}")
+
+
 @dataclass_json
 @dataclass
 class PostData:
     id: str
     subreddit: str
-    title: str
     body: str
     score: int
     message_t: str = "post"
@@ -20,7 +52,6 @@ class PostData:
             id=submission.id,
             subreddit=submission.subreddit.display_name,
             score=submission.score,
-            title=submission.title,
             body=submission.selftext,
         )
 
