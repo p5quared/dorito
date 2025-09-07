@@ -2,7 +2,7 @@ import itertools
 import random
 from typing import List
 
-from shared.sns import SNSFacade
+from shared.sns import SNSFacade, SourceType
 from shared.types import RedditData
 
 from .reddit import FINANCE_SUBREDDITS, PrawClient, SubredditDataSource
@@ -48,7 +48,7 @@ def create_prod_application(container: DIContainer) -> RedditScraperApplication:
     """Create production scraper application"""
     config = container.get(ConfigProvider)
 
-    message_sink = SNSFacade(SNSFacade.SOURCE.REDDIT, config)
+    message_sink = SNSFacade(SourceType.REDDIT, config)
 
     app = RedditScraperApplication(message_sink, config)
     app.log_info("Running in Production Mode")

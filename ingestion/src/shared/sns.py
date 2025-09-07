@@ -15,8 +15,8 @@ from .types import RedditData
 logger = logging.getLogger(__name__)
 
 
-class SourceType(Enum):
-    REDDIT=1
+class SourceType(str, Enum):
+    REDDIT='REDDIT'
 
 
 @dataclass
@@ -32,7 +32,6 @@ class DataProducedEvent:
         return asdict(self)
 
 class SNSFacade(LoggingMixin, RedditDataSink):
-    SOURCE: SourceType
     def __init__(self, source_type: SourceType, config: Optional[ConfigProvider] = None):
         config = config or Config()
         super().__init__(config=config)
@@ -52,7 +51,10 @@ class SNSFacade(LoggingMixin, RedditDataSink):
 
         event_json = json.dumps(data_event.to_dict())
 
-        response = self.sns_client.publish(Message=event_json)
+        response = self.sns_client.publish(
+            Message=event_json,
+            TargetArn=self.topic_arn,
+        )
 
         message_id = response.get("MessageId")
         self.log_debug(f"Successfully published event to {self.topic_arn}, MessageId: {message_id}")

@@ -20,7 +20,6 @@ export class DoritoStack extends Stack {
 	constructor(scope: Construct, id: string, props: DoritoStackProps) {
 		super(scope, id, props);
 
-		// Validate required environment variables
 		this.validateRequiredEnvironmentVariables();
 
 		const vpc = new ec2.Vpc(this, 'DoritoVpc', {
