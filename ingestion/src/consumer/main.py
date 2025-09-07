@@ -1,4 +1,4 @@
-from .processor import FinancialRelevanceProcessor, PrintProcessor
+from .processor import FinancialRelevanceProcessor
 from .utils import CSVDataWriter
 from shared.io import SQSStrategy
 from shared.types import deserialize_reddit_data, get_post_comment_csv_columns
@@ -6,13 +6,13 @@ from shared.interfaces import (
     MessageSource,
     DataProcessor,
     DataWriter,
-    Logger,
     ConfigProvider,
 )
 from shared.container import DIContainer, create_container
+from shared.utils import LoggingMixin
 
 
-class ConsumerApplication:
+class ConsumerApplication(LoggingMixin):
     """Main application for consuming and processing Reddit data"""
 
     def __init__(
@@ -20,23 +20,23 @@ class ConsumerApplication:
         message_source: MessageSource,
         processor: DataProcessor,
         writer: DataWriter,
-        logger: Logger,
+        config: ConfigProvider,
     ):
+        super().__init__(config=config)
         self._message_source = message_source
         self._processor = processor
         self._writer = writer
-        self._logger = logger
 
     def run(self) -> None:
         """Run the consumer application"""
-        self._logger.info("Starting Consumer Application")
+        self.log_info("Starting Consumer Application")
         try:
             self._loop()
         except Exception as e:
-            self._logger.error(f"An error occurred: {e}")
+            self.log_error(f"An error occurred: {e}")
             raise
         finally:
-            self._logger.info("Shutting down Consumer Application")
+            self.log_info("Shutting down Consumer Application")
 
     def _loop(self) -> None:
         """Main processing loop"""
@@ -55,47 +55,47 @@ class ConsumerApplication:
                     processed_count += 1
 
                     if processed_count % 100 == 0:
-                        self._logger.info(f"Processed {processed_count} messages...")
+                        self.log_info(f"Processed {processed_count} messages...")
 
                 except Exception as e:
-                    self._logger.error(f"Error processing message: {e}")
+                    self.log_error(f"Error processing message: {e}")
                     # Still delete the message to avoid reprocessing bad data
                     self._message_source.delete_message(message)
 
         except KeyboardInterrupt:
-            self._logger.info("Received interrupt signal, shutting down gracefully...")
+            self.log_info("Received interrupt signal, shutting down gracefully...")
         except Exception as e:
-            self._logger.error(f"Fatal error in processing loop: {e}")
+            self.log_error(f"Fatal error in processing loop: {e}")
             raise
 
 def create_local_consumer(container: DIContainer) -> ConsumerApplication:
     """Create local consumer application"""
-    logger = container.get(Logger)
     config = container.get(ConfigProvider)
 
-    message_source = SQSStrategy(config, logger)
-    processor = FinancialRelevanceProcessor(logger)
+    message_source = SQSStrategy(config)
+    processor = FinancialRelevanceProcessor(config)
     writer = CSVDataWriter(
         "data.csv", fieldnames=get_post_comment_csv_columns()
     )
 
-    logger.info("Running in Local Mode")
-    return ConsumerApplication(message_source, processor, writer, logger)
+    app = ConsumerApplication(message_source, processor, writer, config)
+    app.log_info("Running in Local Mode")
+    return app
 
 
 def create_prod_consumer(container: DIContainer) -> ConsumerApplication:
     """Create production consumer application"""
-    logger = container.get(Logger)
     config = container.get(ConfigProvider)
 
-    message_source = SQSStrategy(config, logger)
-    processor = PrintProcessor(logger)
+    message_source = SQSStrategy(config)
+    processor = FinancialRelevanceProcessor(config)
     writer = CSVDataWriter(
-        "all.csv", fieldnames=get_post_comment_csv_columns()
+        "dataV2.csv", fieldnames=get_post_comment_csv_columns()
     )
 
-    logger.info("Running in Production Mode")
-    return ConsumerApplication(message_source, processor, writer, logger)
+    app = ConsumerApplication(message_source, processor, writer, config)
+    app.log_info("Running in Production Mode")
+    return app
 
 def main():
 

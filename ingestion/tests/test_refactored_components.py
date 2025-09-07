@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 from praw.models import Comment
 
 from shared.container import DIContainer
-from shared.interfaces import ConfigProvider, Logger, MessageSink, DataProcessor
+from shared.interfaces import ConfigProvider, Logger, RedditDataSink, DataProcessor
 from shared.utils import Config
 from shared.types import PostData
 from producer.main import RedditScraperApplication, create_local_application
@@ -153,7 +153,7 @@ class TestRedditScraperApplication:
     @pytest.fixture
     def mock_dependencies(self):
         """Create mock dependencies for producer testing"""
-        mock_message_sink = Mock(spec=MessageSink)
+        mock_message_sink = Mock(spec=RedditDataSink)
         mock_reddit_client = Mock()
         mock_logger = Mock(spec=Logger)
 

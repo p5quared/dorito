@@ -1,9 +1,10 @@
 import praw
 from praw.models import Submission, Comment
 import itertools
-from typing import Iterator
+from typing import Iterator, Union
 
-from shared.interfaces import ConfigProvider, Logger, DataSource
+from shared.interfaces import ConfigProvider, DataSource
+from shared.utils import LoggingMixin
 
 FINANCE_SUBREDDITS = [
     "finance",
@@ -31,17 +32,18 @@ class PrawClient:
         )
 
 
-class SubredditDataSource(DataSource):
+class SubredditDataSource(LoggingMixin, DataSource):
     """Data source for Reddit subreddit content"""
 
-    def __init__(self, subreddit: str, reddit_client: PrawClient, logger: Logger):
+    def __init__(self, subreddit: str, reddit_client: PrawClient, config: ConfigProvider, post_limit: int = 25):
+        super().__init__(config=config)
         self._subreddit = subreddit
         self._reddit_client = reddit_client
-        self._logger = logger
+        self._post_limit = post_limit
 
     def get_content(self, limit: int = 25) -> Iterator[Submission]:
         """Get hot submissions from the subreddit"""
-        self._logger.info(
+        self.log_info(
             f"Fetching hot submissions from subreddit: {self._subreddit} with limit: {limit}"
         )
         posts = self._reddit_client.reddit.subreddit(self._subreddit).hot(limit=limit)
@@ -49,10 +51,27 @@ class SubredditDataSource(DataSource):
 
     def get_comments_from_submission(self, submission: Submission) -> list[Comment]:
         """Get all comments from a submission"""
-        self._logger.info(f"Fetching all comments from submission: {submission.id}")
+        self.log_info(f"Fetching all comments from submission: {submission.id}")
         submission.comments.replace_more(limit=None)
         return [
             comment
             for comment in submission.comments.list()
             if isinstance(comment, Comment)
         ]
+
+    def data(self) -> Iterator[Submission | Comment]:
+        """Yield all posts and comments one by one"""
+        self.log_info(
+            f"Fetching all content from subreddit: {self._subreddit} with post limit: {self._post_limit}"
+        )
+        posts = self._reddit_client.reddit.subreddit(self._subreddit).hot(limit=self._post_limit)
+        
+        for post in itertools.islice(posts, self._post_limit):
+            yield post
+            yield from self.get_comments_from_submission(post)
+
+
+def create_subreddit_data_source(subreddit: str, scrape_limit: int, config: ConfigProvider) -> SubredditDataSource:
+    """Factory function to create a SubredditDataSource"""
+    reddit_client = PrawClient(config)
+    return SubredditDataSource(subreddit, reddit_client, config, scrape_limit)

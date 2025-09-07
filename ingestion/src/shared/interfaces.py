@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Iterator, Any, Protocol
-from .types import CommentData, PostData
+
+from .types import CommentData, PostData, RedditData
 
 
 class DataSource(Protocol):
@@ -11,11 +12,11 @@ class DataSource(Protocol):
         ...
 
 
-class MessageSink(ABC):
+class RedditDataSink(ABC):
     """Abstract base class for message sinks"""
 
     @abstractmethod
-    def send_message(self, data: str) -> None:
+    def send_message(self, data: RedditData) -> None:
         """Send a message to the sink"""
         pass
 
@@ -82,6 +83,9 @@ class ConfigProvider(Protocol):
 
     @property
     def reddit_user_agent(self) -> str: ...
+
+    @property
+    def sns_topic_arn(self) -> str: ...
 
     @property
     def queue_url(self) -> str: ...

@@ -1,7 +1,7 @@
 import os
 import logging
 from typing import Optional
-from .interfaces import ConfigProvider
+from .interfaces import ConfigProvider, Logger
 
 
 class Config:
@@ -42,6 +42,10 @@ class Config:
     def log_level(self) -> str:
         return self._env.get("LOG_LEVEL", "INFO")
 
+    @property
+    def sns_topic_arn(self) -> str:
+        return self._env.get("SNS_TOPIC_ARN", "MISSING_SNS_TOPIC_ARN")
+
     # Legacy properties for backward compatibility
     @property
     def client_id(self) -> str:
@@ -61,26 +65,31 @@ class Config:
 
 
 class LoggingMixin:
-    """Mixin for classes that need logging - deprecated, use DI container instead"""
+    """Mixin for classes that need logging with proper context"""
 
-    def __init__(self, config: Optional[ConfigProvider] = None):
+    def __init__(self, *args, config: Optional[ConfigProvider] = None, **kwargs):
+        super().__init__(*args, **kwargs)
         self._config = config or Config()
+        self._setup_logging()
+
+    def _setup_logging(self):
+        """Setup logging with class-specific context"""
+        logging.basicConfig(level=getattr(logging, self._config.log_level.upper()))
+        self._logger = logging.getLogger(self.__class__.__name__)
 
     @property
     def logger(self):
-        if not hasattr(self, "_logger"):
-            logging.basicConfig(level=getattr(logging, self._config.log_level.upper()))
-            self._logger = logging.getLogger(self.__class__.__name__)
+        """Get logger instance with class-specific context"""
         return self._logger
 
     def log_info(self, message: str, *args, **kwargs):
-        self.logger.info(message, *args, **kwargs)
+        self._logger.info(message, *args, **kwargs)
 
     def log_error(self, message: str, *args, **kwargs):
-        self.logger.error(message, *args, **kwargs)
+        self._logger.error(message, *args, **kwargs)
 
     def log_debug(self, message: str, *args, **kwargs):
-        self.logger.debug(message, *args, **kwargs)
+        self._logger.debug(message, *args, **kwargs)
 
     def log_warning(self, message: str, *args, **kwargs):
-        self.logger.warning(message, *args, **kwargs)
+        self._logger.warning(message, *args, **kwargs)
