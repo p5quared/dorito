@@ -1,0 +1,35 @@
+{
+  "name": "savior",
+  "version": "1.0.0",
+  "description": "Data persistence service.",
+  "keywords": [
+    "typescript",
+    "aws",
+    "lambda",
+    "service"
+  ],
+  "homepage": "https://github.com/p5quared/dorito#readme",
+  "bugs": {
+    "url": "https://github.com/p5quared/dorito/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/p5quared/dorito.git"
+  },
+  "license": "MIT",
+  "author": "p5quared",
+  "type": "commonjs",
+  "main": "index.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.152",
+    "@types/node": "^24.3.1",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "aws-lambda": "^1.0.7"
+  }
+}
