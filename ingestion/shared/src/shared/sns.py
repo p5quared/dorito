@@ -20,12 +20,16 @@ class EventType(str, Enum):
     DATA_PRODUCED='data.produced'
 
 @dataclass
-class DataProducedEvent:
+class EventMeta:
     correlation_id: str
     source_type: SourceType
     source_date: str
-    body: RedditData
     event_type: EventType = EventType.DATA_PRODUCED
+
+@dataclass
+class DataProducedEvent:
+    meta: EventMeta
+    data: RedditData
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -61,11 +65,14 @@ class SNSFacade(LoggingMixin, RedditDataSink):
         return message_id
     
     def make_event(self, body: RedditData) -> DataProducedEvent:
-        return DataProducedEvent(
+        meta = EventMeta(
             correlation_id=get_correlation_id(body),
             source_type=self.SOURCE,
-            source_date=str(datetime.now()),
-            body=body
+            source_date=str(datetime.now())
+        )
+        return DataProducedEvent(
+            meta=meta,
+            data=body
         )
 
 def get_correlation_id(data: RedditData) -> str:
