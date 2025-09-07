@@ -2,28 +2,37 @@ import json
 from dataclasses_json import dataclass_json
 from dataclasses import dataclass, fields
 from praw.models import Comment, Submission
+from enum import Enum
+
+
+class RedditType(str, Enum):
+    SUBMISSION = "submission"
+    COMMENT = "comment"
 
 
 @dataclass
 class RedditData:
-    submission_id: str
+    id: str
+    reddit_type: RedditType
     subreddit: str
     body: str
 
     @classmethod
     def from_submission(cls, submission: Submission):
         return cls(
-            submission_id=submission.id,
+            id=submission.id,
             subreddit=submission.subreddit.display_name,
-            body=submission.selftext
+            body=submission.selftext,
+            reddit_type=RedditType.SUBMISSION
         )
 
     @classmethod
     def from_comment(cls, comment: Comment):
         return cls(
-            submission_id=comment.submission.id if comment.submission else "unknown",
-            subreddit=comment.subreddit.display_name if comment.subreddit else "unknown",
-            body=comment.body
+            id=comment.id,
+            subreddit=comment.subreddit.display_name,
+            body=comment.body,
+            reddit_type=RedditType.COMMENT,
         )
 
     @classmethod

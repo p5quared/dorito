@@ -1,10 +1,8 @@
 from datetime import datetime
 from enum import Enum
-import uuid
 import json
 from typing import Optional
 import boto3
-from botocore.exceptions import ClientError
 import logging
 from dataclasses import dataclass, asdict
 
@@ -18,6 +16,8 @@ logger = logging.getLogger(__name__)
 class SourceType(str, Enum):
     REDDIT='REDDIT'
 
+class EventType(str, Enum):
+    DATA_PRODUCED='data.produced'
 
 @dataclass
 class DataProducedEvent:
@@ -25,8 +25,7 @@ class DataProducedEvent:
     source_type: SourceType
     source_date: str
     body: RedditData
-    subject: str = "Data Produced Event"
-    event_type: str = "event.data.produced"
+    event_type: EventType = EventType.DATA_PRODUCED
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -63,11 +62,11 @@ class SNSFacade(LoggingMixin, RedditDataSink):
     
     def make_event(self, body: RedditData) -> DataProducedEvent:
         return DataProducedEvent(
-            correlation_id=get_correlation_id(),
+            correlation_id=get_correlation_id(body),
             source_type=self.SOURCE,
             source_date=str(datetime.now()),
             body=body
         )
 
-def get_correlation_id() -> str:
-    return str(uuid.uuid4())
+def get_correlation_id(data: RedditData) -> str:
+    return f"RAW_DATA#{data.id}"
