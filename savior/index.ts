@@ -1,27 +1,23 @@
 import { SQSEvent, SQSBatchResponse, SQSBatchItemFailure } from 'aws-lambda';
+import { RedditDataProducedEvent, SourceType, validateRedditDataProducedEvent } from './types';
+import { RawDataEntity } from './ddb';
+import { PutItemCommand } from 'dynamodb-toolbox';
 
 export const handler = async (event: SQSEvent): Promise<SQSBatchResponse> => {
+  console.log(`Received ${event.Records.length} records`);
+
   const batchItemFailures: SQSBatchItemFailure[] = [];
 
   for (const record of event.Records) {
+	console.log('Processing SQS message:', record.messageId);
     try {
-      console.log('Processing SQS message:', record.messageId);
+      const dataProducedMessage = JSON.parse(record.body);
       
-      // Parse SNS message from SQS body
-      const snsMessage = JSON.parse(record.body);
-      
-      if (snsMessage.Type === 'Notification') {
-        console.log('SNS Topic ARN:', snsMessage.TopicArn);
-        console.log('SNS Message ID:', snsMessage.MessageId);
-        console.log('SNS Subject:', snsMessage.Subject);
-        
-        // The actual message payload is in the Message field
-        const messagePayload = snsMessage.Message;
-        console.log('Message payload:', messagePayload);
-        
-        await handleMessage(messagePayload);
+	  const isRedditDataProducedEvent = validateRedditDataProducedEvent(dataProducedMessage)
+      if (isRedditDataProducedEvent) {
+        await handleRedditDataProduced(dataProducedMessage);
       } else {
-        console.warn('Received non-notification SNS message type:', snsMessage.Type);
+		throw new Error('Unrecognized record type');
       }
       
     } catch (error) {
@@ -37,6 +33,13 @@ export const handler = async (event: SQSEvent): Promise<SQSBatchResponse> => {
   };
 };
 
-const handleMessage = async (message: any) => {
-  console.log('Handling message:', message);
+const handleRedditDataProduced = async (dataProduced: RedditDataProducedEvent) => {
+  const r = await RawDataEntity.build(PutItemCommand)
+  .item({
+	id: dataProduced.data.id,
+	sourceType: SourceType.REDDIT,
+	sourceDate: dataProduced.meta.source_date,
+	data: dataProduced.data
+  }).options({ returnValues: 'ALL_OLD'}).send()
+  return r
 }
