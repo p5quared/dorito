@@ -21,7 +21,7 @@ export class ReservoirStack extends Stack {
 		super(scope, id, props);
 
 		this.table = new dynamodb.Table(this, 'DDBTable', {
-			tableName: 'ReservoirMain',
+			tableName: 'Reservoir',
 			partitionKey: {
 				name: 'PK', type: dynamodb.AttributeType.STRING
 			},

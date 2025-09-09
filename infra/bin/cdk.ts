@@ -1,19 +1,29 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib';
-import { DoritoStack } from '../lib/cdk-stack';
-import { SaviorStack } from '../lib/savior-stack';
+import { OceanStack } from '../lib/ocean-stack';
+import { TrawlerStack } from '../lib/trawler-stack';
+import { ReservoirStack } from '../lib/reservoir-stack';
 
 
 
 const app = new cdk.App();
 
-// Persistence Service
-const saviorStack = new SaviorStack(app, 'Savior');
+const rootStack = new OceanStack(app, 'Ocean', {})
+const vpc = rootStack.vpc;
 
+// Data Tap - Data Source
+const trawler = new TrawlerStack(app, 'Trawler', 
+  { vpc }
+);
 
-// Data Producer Service
-const imageTag = app.node.tryGetContext('imageTag');
-new DoritoStack(app, 'Dorito', { 
-	imageTag,
-	saviorQueue: saviorStack.inputQueue 
-});
+// Data Savior - Data Sink
+const reservoirStack = new ReservoirStack(app, 'Reservoir',
+	{ vpc }
+);
+
+reservoirStack.save_topic(
+  trawler.dataTopic, 
+  '../savior/index.ts',
+  'RedditData',
+  undefined
+)
