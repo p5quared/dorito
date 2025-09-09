@@ -1,70 +1,58 @@
-import { CfnOutput, Duration, Stack, StackProps } from 'aws-cdk-lib';
-import * as sqs from 'aws-cdk-lib/aws-sqs';
+import { CfnOutput, Stack, StackProps } from 'aws-cdk-lib';
 import * as sns from 'aws-cdk-lib/aws-sns';
-import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as ecs_patterns from 'aws-cdk-lib/aws-ecs-patterns';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
+import { Repository } from 'aws-cdk-lib/aws-ecr';
+import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
 
-interface DoritoStackProps extends StackProps {
-	imageTag?: string;
-	saviorQueue: sqs.IQueue;
+interface TrawlerStackProps extends StackProps {
+	vpc: ec2.Vpc;
 }
 
-export class DoritoStack extends Stack {
+export class TrawlerStack extends Stack {
 	public readonly dataTopic: sns.Topic;
+	private readonly repo: Repository;
 
-	constructor(scope: Construct, id: string, props: DoritoStackProps) {
+	constructor(scope: Construct, id: string, props: TrawlerStackProps) {
 		super(scope, id, props);
 
 		this.validateRequiredEnvironmentVariables();
 
-		const vpc = new ec2.Vpc(this, 'DoritoVpc', {
-			maxAzs: 2,
-			natGateways: 1,
-			natGatewayProvider: ec2.NatProvider.instanceV2({
-				instanceType: ec2.InstanceType.of(ec2.InstanceClass.T4G, ec2.InstanceSize.NANO),
-			}),
+		this.dataTopic = new sns.Topic(this, 'TrawlerTopic', {
+			topicName: 'Trawler',
+			displayName: 'All the data we trawl from the web',
 		});
 
-		const cluster = new ecs.Cluster(this, 'DoritoCluster', {
-			vpc: vpc,
+		this.createRedditScraper(props);
+
+		new CfnOutput(this, 'DataTopicArn', {
+			value: this.dataTopic.topicArn,
+			description: 'Data Topic ARN',
+		});
+	}
+
+
+	private createRedditScraper(props: TrawlerStackProps): void {
+		const cluster = new ecs.Cluster(this, 'TapECSCluster', {
+			vpc: props.vpc,
+		});
+		const imageAsset = new DockerImageAsset(this, 'MyAppImage', {
+		  directory: '../ingestion',
 		});
 
-		const dataQueue = new sqs.Queue(this, 'DataQueue', {
-			queueName: 'data-queue',
-			visibilityTimeout: Duration.seconds(300),
-			retentionPeriod: Duration.days(7),
-		});
-
-		this.dataTopic = new sns.Topic(this, 'DataTopic', {
-			topicName: 'Data',
-			displayName: 'Data Topic for Dorito Services',
-		});
-
-		this.dataTopic.addSubscription(
-			new snsSubscriptions.SqsSubscription(
-				props.saviorQueue,
-				{
-					rawMessageDelivery: true
-				}
-			)
-		);
-
-		const imageTag = props?.imageTag ?? 'latest';
 		const scraperTask = new ecs_patterns.ScheduledFargateTask(this, 'ScheduledScraper', {
 			cluster: cluster,
-			vpc: vpc,
+			vpc: props.vpc,
 			subnetSelection: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
 			scheduledFargateTaskImageOptions: {
-				image: ecs.ContainerImage.fromRegistry(`p5quared/dorito_producer:${imageTag}`),
+				image: ecs.ContainerImage.fromDockerImageAsset(imageAsset),
 				memoryLimitMiB: 512,
 				cpu: 256,
 				environment: {
-					SQS_QUEUE_URL: dataQueue.queueUrl,
 					SNS_TOPIC_ARN: this.dataTopic.topicArn,
 
 					ENVIRONMENT: 'prod',
@@ -87,28 +75,10 @@ export class DoritoStack extends Stack {
 		scraperTask.taskDefinition.addToTaskRolePolicy(
 			new iam.PolicyStatement({
 				effect: iam.Effect.ALLOW,
-				actions: ['sqs:SendMessage'],
-				resources: [dataQueue.queueArn],
-			})
-		);
-
-		scraperTask.taskDefinition.addToTaskRolePolicy(
-			new iam.PolicyStatement({
-				effect: iam.Effect.ALLOW,
 				actions: ['sns:Publish'],
 				resources: [this.dataTopic.topicArn],
 			})
 		);
-
-		new CfnOutput(this, 'DataQueueUrl', {
-			value: dataQueue.queueUrl,
-			description: 'Data Queue URL',
-		});
-
-		new CfnOutput(this, 'DataTopicArn', {
-			value: this.dataTopic.topicArn,
-			description: 'Data Topic ARN',
-		});
 	}
 
 	private validateRequiredEnvironmentVariables(): void {
