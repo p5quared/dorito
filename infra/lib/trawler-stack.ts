@@ -7,7 +7,7 @@ import * as ecs_patterns from 'aws-cdk-lib/aws-ecs-patterns';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
 import { Repository } from 'aws-cdk-lib/aws-ecr';
-import { DockerImageAsset } from 'aws-cdk-lib/aws-ecr-assets';
+import * as ecr_assets from 'aws-cdk-lib/aws-ecr-assets';
 
 interface TrawlerStackProps extends StackProps {
 	vpc: ec2.Vpc;
@@ -40,8 +40,10 @@ export class TrawlerStack extends Stack {
 		const cluster = new ecs.Cluster(this, 'TapECSCluster', {
 			vpc: props.vpc,
 		});
-		const imageAsset = new DockerImageAsset(this, 'MyAppImage', {
-		  directory: '../ingestion',
+
+		const imageAsset = new ecr_assets.DockerImageAsset(this, 'MyAppImage', {
+			directory: '../ingestion',
+			platform: ecr_assets.Platform.LINUX_ARM64,
 		});
 
 		const scraperTask = new ecs_patterns.ScheduledFargateTask(this, 'ScheduledScraper', {
@@ -49,6 +51,10 @@ export class TrawlerStack extends Stack {
 			vpc: props.vpc,
 			subnetSelection: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
 			scheduledFargateTaskImageOptions: {
+				runtimePlatform: {
+					cpuArchitecture: ecs.CpuArchitecture.ARM64,
+					operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
+				},
 				image: ecs.ContainerImage.fromDockerImageAsset(imageAsset),
 				memoryLimitMiB: 512,
 				cpu: 256,
