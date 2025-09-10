@@ -16,14 +16,14 @@ const trawler = new TrawlerStack(app, 'Trawler',
   { vpc }
 );
 
-// Data Savior - Data Sink
+// Data Reservoir - Data Sink
 const reservoirStack = new ReservoirStack(app, 'Reservoir',
 	{ vpc }
 );
 
 reservoirStack.save_topic(
   trawler.dataTopic, 
-  '../savior/index.ts',
+  '../reservoir/index.ts',
   'RedditData',
   undefined
 )

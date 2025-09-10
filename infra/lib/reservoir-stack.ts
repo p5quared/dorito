@@ -40,7 +40,7 @@ export class ReservoirStack extends Stack {
 
 		new CfnOutput(this, 'DDBTableArn', {
 			value: this.table.tableArn,
-			description: 'Savior DynamoDB Table ARN',
+			description: 'Reservoir DynamoDB Table ARN',
 			exportName: `${id}-DDB-Table-ARN`,
 		});
 	}
