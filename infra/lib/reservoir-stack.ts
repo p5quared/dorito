@@ -15,7 +15,8 @@ interface ReservoirStackProps extends StackProps {
 }
 
 export class ReservoirStack extends Stack {
-	public readonly table: dynamodb.Table;
+	private readonly table: dynamodb.Table;
+	private readonly snsTopic: sns.Topic;
 
 	constructor(scope: Construct, id: string, props?: ReservoirStackProps) {
 		super(scope, id, props);
@@ -30,6 +31,16 @@ export class ReservoirStack extends Stack {
 			},
 			billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
 			removalPolicy: RemovalPolicy.DESTROY,
+		});
+
+		this.snsTopic = new sns.Topic(this, 'ReservoirTopic', {
+			topicName: 'ReservoirTopic',
+		})
+
+		new CfnOutput(this, 'SNSTopicArn', {
+			value: this.snsTopic.topicArn,
+			description: 'Reservoir SNS Topic ARN',
+			exportName: `${id}-SNS-Topic-ARN`,
 		});
 
 		new CfnOutput(this, 'DDBTableName', {
@@ -69,15 +80,22 @@ export class ReservoirStack extends Stack {
 	//     store: sns.SubscriptionFilter.existsFilter(),
 	//   },
 	//
-	save_topic(
+	persist_topic(
 		topic: sns.Topic,
 		handlerLocation: string,
 		uniqueId: string,
-		filterRule?: Record<string, sns.SubscriptionFilter>,
-	): { queue: sqs.Queue; lambda: lambda.Function } {
+	) {
+		const deadLetterQueue = new sqs.Queue(this, `${uniqueId}-DLQ`, {
+			retentionPeriod: Duration.days(14),
+		});
+
 		const queue = new sqs.Queue(this, `${uniqueId}-Queue`, {
 			visibilityTimeout: Duration.minutes(1),
 			retentionPeriod: Duration.days(14),
+			deadLetterQueue: {
+				queue: deadLetterQueue,
+				maxReceiveCount: 3,
+			},
 		});
 
 		const lambdaFunction = new nodejs.NodejsFunction(this, `${uniqueId}-Lambda`, {
@@ -86,6 +104,7 @@ export class ReservoirStack extends Stack {
 			memorySize: 128,
 			environment: {
 				DYNAMODB_TABLE_NAME: this.table.tableName,
+				SNS_TOPIC_ARN: topic.topicArn,
 			},
 			runtime: lambda.Runtime.NODEJS_LATEST,
 		});
@@ -113,6 +132,16 @@ export class ReservoirStack extends Stack {
 			})
 		);
 
+		lambdaFunction.addToRolePolicy(
+			new iam.PolicyStatement({
+				effect: iam.Effect.ALLOW,
+				actions: [
+					'sns:Publish',
+				],
+				resources: [topic.topicArn],
+			})
+		);
+
 		lambdaFunction.addEventSource(
 			new lambdaEventSources.SqsEventSource(queue, {
 				batchSize: 10,
@@ -122,16 +151,57 @@ export class ReservoirStack extends Stack {
 
 		topic.addSubscription(
 			new snsSubscriptions.SqsSubscription(queue, {
-				filterPolicy: filterRule,
+				rawMessageDelivery: true,
+			})
+		);
+		console.log(`Topic ${topic.topicArn} is being persisted by ${lambdaFunction.functionName}`)
+	}
+
+	persist_queues(
+		queues: sqs.Queue[],
+		handlerLocation: string,
+		uniqueId: string,
+	) {
+		const lambdaFunction = new nodejs.NodejsFunction(this, `${uniqueId}-Lambda`, {
+			entry: handlerLocation,
+			timeout: Duration.seconds(10),
+			memorySize: 128,
+			environment: {
+				DYNAMODB_TABLE_NAME: this.table.tableName,
+			},
+			runtime: lambda.Runtime.NODEJS_LATEST,
+		});
+
+		lambdaFunction.addToRolePolicy(
+			new iam.PolicyStatement({
+				effect: iam.Effect.ALLOW,
+				actions: [
+					'sqs:ReceiveMessage',
+					'sqs:DeleteMessage',
+					'sqs:GetQueueAttributes',
+				],
+				resources: [queues.map(q => q.queueArn).join(',')],
 			})
 		);
 
-		new CfnOutput(this, `${uniqueId}-Queue-URL`, {
-			value: queue.queueUrl,
-			description: `SQS Queue URL for peresitence of ${uniqueId}`,
-			exportName: `${this.stackName}-QueueURL-${uniqueId}`,
-		});
+		lambdaFunction.addToRolePolicy(
+			new iam.PolicyStatement({
+				effect: iam.Effect.ALLOW,
+				actions: [
+					'dynamodb:PutItem',
+					'dynamodb:UpdateItem',
+				],
+				resources: [this.table.tableArn],
+			})
+		);
 
-		return { queue, lambda: lambdaFunction };
+		queues.forEach(q => lambdaFunction.addEventSource(
+			new lambdaEventSources.SqsEventSource(q, {
+				batchSize: 10,
+				maxBatchingWindow: Duration.minutes(5),
+			}))
+		);
+
+		queues.forEach(q => console.log(`Queue ${q.queueArn} is being persisted by ${lambdaFunction.functionName}`));
 	}
 }

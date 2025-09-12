@@ -15,7 +15,6 @@ interface TrawlerStackProps extends StackProps {
 
 export class TrawlerStack extends Stack {
 	public readonly dataTopic: sns.Topic;
-	private readonly repo: Repository;
 
 	constructor(scope: Construct, id: string, props: TrawlerStackProps) {
 		super(scope, id, props);
