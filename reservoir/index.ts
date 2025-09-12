@@ -1,45 +1,26 @@
-import { SQSEvent, SQSBatchResponse, SQSBatchItemFailure } from 'aws-lambda';
-import { RedditDataProducedEvent, SourceType, validateRedditDataProducedEvent } from './types';
-import { RawDataEntity } from './ddb';
-import { PutItemCommand } from 'dynamodb-toolbox';
+import { saveRedditDataDDB } from './ddb';
+import { RawDataProducedEvent, validateRawDataProducedEvent } from './parser';
+import { eventHandler, MessageHandlerBuilder } from './handling';
+import { getConfigRequired, printMessage } from './utils';
+import { SQSHandler } from 'aws-lambda';
+import { SNSStrategyBuilder } from './publisher';
 
-export const handler = async (event: SQSEvent): Promise<SQSBatchResponse> => {
-  console.log(`Received ${event.Records.length} records`);
 
-  const batchItemFailures: SQSBatchItemFailure[] = [];
+const RedditDataPublisher = new SNSStrategyBuilder<RawDataProducedEvent>()
+	.withSnsTopicArn(getConfigRequired('SNS_TOPIC_ARN'))
+	.withEventType("trawl.reddit")
+	.withAwsRegion(getConfigRequired('AWS_REGION'))
+	.withCorrelationIdResolver((redditData) => redditData.meta.correlation_id)
+	.build();
 
-  for (const record of event.Records) {
-	console.log('Processing SQS message:', record.messageId);
-    try {
-      const dataProducedMessage = JSON.parse(record.body);
-      
-	  const isRedditDataProducedEvent = validateRedditDataProducedEvent(dataProducedMessage)
-      if (isRedditDataProducedEvent) {
-        await handleRedditDataProduced(dataProducedMessage);
-      } else {
-		throw new Error('Unrecognized record type');
-      }
-      
-    } catch (error) {
-      console.error(`Failed to process message ${record.messageId}:`, error);
-      batchItemFailures.push({
-        itemIdentifier: record.messageId
-      });
-    }
-  }
 
-  return {
-    batchItemFailures
-  };
-};
+const RedditRecordHandler = new MessageHandlerBuilder<RawDataProducedEvent>()
+	.withValidator(validateRawDataProducedEvent)
+	.withHandler(saveRedditDataDDB)
+	.withHandler(printMessage)
+	.withPublisher(RedditDataPublisher.publishData.bind(RedditDataPublisher))
+	.build()
 
-const handleRedditDataProduced = async (dataProduced: RedditDataProducedEvent) => {
-  const r = await RawDataEntity.build(PutItemCommand)
-  .item({
-	id: dataProduced.data.id,
-	sourceType: SourceType.REDDIT,
-	sourceDate: dataProduced.meta.source_date,
-	data: dataProduced.data
-  }).options({ returnValues: 'ALL_OLD'}).send()
-  return r
-}
+const RedditEventHandler = eventHandler<RawDataProducedEvent>(RedditRecordHandler.handle.bind(RedditRecordHandler))
+
+export const handler: SQSHandler = RedditEventHandler
