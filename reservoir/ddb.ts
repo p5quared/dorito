@@ -1,6 +1,7 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { any, Entity, item, string, Table } from "dynamodb-toolbox";
+import { any, Entity, item, PutItemCommand, string, Table } from "dynamodb-toolbox";
+import { RawDataProducedEvent } from "./parser";
 
 const ddbClient = new DynamoDBClient()
 const documentClient = DynamoDBDocumentClient.from(ddbClient)
@@ -56,7 +57,6 @@ export const RawDataEntity = new Entity({
   table: QuickSaveTable,
   schema: item({
 	id: string().key(),
-	sourceType: string(),
 	sourceDate: string(),
 	data: any()
   }).and(prevSchema => ({
@@ -64,3 +64,12 @@ export const RawDataEntity = new Entity({
 	SK: string().key().link<typeof prevSchema>(({id}) => `RAW_DATA#${id}`),
   }))
 })
+
+export const saveRedditDataDDB = async (dataProduced: RawDataProducedEvent) => {
+  await RawDataEntity.build(PutItemCommand)
+  .item({
+	id: dataProduced.data.id,
+	sourceDate: dataProduced.meta.source_date,
+	data: dataProduced.data
+  }).options({ returnValues: 'ALL_OLD'}).send()
+}
