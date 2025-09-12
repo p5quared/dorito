@@ -12,8 +12,8 @@ const rootStack = new OceanStack(app, 'Ocean', {})
 const vpc = rootStack.vpc;
 
 // Data Tap - Data Source
-const trawler = new TrawlerStack(app, 'Trawler', 
-  { vpc }
+const trawler = new TrawlerStack(app, 'Trawler',
+	{ vpc }
 );
 
 // Data Reservoir - Data Sink
@@ -21,9 +21,8 @@ const reservoirStack = new ReservoirStack(app, 'Reservoir',
 	{ vpc }
 );
 
-reservoirStack.save_topic(
-  trawler.dataTopic, 
-  '../reservoir/index.ts',
-  'RedditData',
-  undefined
+reservoirStack.persist_topic(
+	trawler.dataTopic,
+	'../reservoir/index.ts',
+	'DDBHandler',
 )
