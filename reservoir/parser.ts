@@ -8,6 +8,8 @@ const EventTypeEnumSchema = z.enum([
 export type EventType = z.infer<typeof EventTypeEnumSchema>
 
 const EventMetadataSchema = z.object({
+   // INFO: Dont forget: this ID is what ties together all events
+   // for a given source whether post,comment, reddit, web, etc...
   correlation_id: z.string(),
   event_type: EventTypeEnumSchema,
   source_date: z.string()
@@ -16,9 +18,17 @@ const EventMetadataSchema = z.object({
 export type EventMetadata = z.infer<typeof EventMetadataSchema>
 
 const RawDataSchema = z.object({
-	id: z.string(), // Identifier that is unique to the body/data/source
+	id: z.string(),
 	body: z.string()
 })
+
+const KeyWordSchema = z.object({
+  keyword: z.string(),
+  confidence: z.number().min(0).max(1)
+})
+
+type KeyWordResult = z.infer<typeof KeyWordSchema>
+
 
 const RawDataProducedEnvelopeSchema = z.object({
   meta: EventMetadataSchema,
