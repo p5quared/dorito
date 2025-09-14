@@ -18,10 +18,10 @@ const trawler = new TrawlerStack(app, 'Trawler', { vpc });
 // Data Reservoir - Data Sink
 const reservoirStack = new ReservoirStack(app, 'Reservoir', { vpc });
 
-reservoirStack.persist_topic(
+const rawDataSavedEvent = reservoirStack.persist_topic(
 	trawler.dataTopic,
 	'../reservoir/index.ts',
-	'DDBHandler',
+	'reservoir.raw',
 )
 
 const keyword_saver = reservoirStack.newPersistenceQueue(
@@ -29,7 +29,14 @@ const keyword_saver = reservoirStack.newPersistenceQueue(
   'Keyword'
 )
 
-const minerva = new MinervaStack(app, 'Minerva', { vpc })
+const minerva = new MinervaStack(app, 'Minerva', { 
+  vpc,
+  dataSavedTopic: reservoirStack.snsTopic
+})
 
-minerva.createECSWorker('KEYWORD', keyword_saver)
+minerva.createECSWorker(
+  'KEYWORD', 
+  rawDataSavedEvent,
+  keyword_saver
+)
 
