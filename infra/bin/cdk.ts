@@ -14,8 +14,6 @@ const vpc = rootStack.vpc;
 
 // Data Tap - Data Source
 const trawler = new TrawlerStack(app, 'Trawler', { vpc });
-const minerva = new MinervaStack(app, 'Minerva', { vpc })
-minerva.createLambdaWorker('KEYWORD')
 
 // Data Reservoir - Data Sink
 const reservoirStack = new ReservoirStack(app, 'Reservoir', { vpc });
@@ -25,3 +23,13 @@ reservoirStack.persist_topic(
 	'../reservoir/index.ts',
 	'DDBHandler',
 )
+
+const keyword_saver = reservoirStack.newPersistenceQueue(
+  '../reservoir/keyword.ts',
+  'Keyword'
+)
+
+const minerva = new MinervaStack(app, 'Minerva', { vpc })
+
+minerva.createECSWorker('KEYWORD', keyword_saver)
+

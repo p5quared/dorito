@@ -6,6 +6,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ecr_assets from 'aws-cdk-lib/aws-ecr-assets';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 
 interface MinervaStackProps extends StackProps {
@@ -74,7 +75,6 @@ export class MinervaStack extends Stack {
 			environment: {
 				SERVICE_TYPE: workerType,
 				OUTPUT_QUEUE_URL: outputQueue.queueUrl,
-				AWS_REGION: this.region,
 			},
 		});
 
@@ -130,7 +130,7 @@ export class MinervaStack extends Stack {
 		return inputQueue;
 	}
 
-	createECSWorker(workerType: string, outputQueue: sqs.Queue) {
+	createECSWorker(workerType: string, outputQueue: sqs.IQueue) {
 		const workerTypeLower = workerType.toLowerCase();
 
 		const inputDeadLetterQueue = new sqs.Queue(this, `${workerType}-Input-DLQ`, {
@@ -156,9 +156,13 @@ export class MinervaStack extends Stack {
 		const taskDefinition = new ecs.FargateTaskDefinition(this, `${workerType}-TaskDef`, {
 			family: `minerva-${workerTypeLower}-worker`,
 			cpu: 1024,
-			memoryLimitMiB: 1024,
+			memoryLimitMiB: 2048,
 		});
 
+		const logGroup = new logs.LogGroup(this, `${workerType}-LogGroup`, {
+			logGroupName: `/ecs/minerva-${workerTypeLower}-worker`,
+			retention: logs.RetentionDays.ONE_WEEK,
+		});
 
 		taskDefinition.addContainer(`${workerType}-Container`, {
 			image: ecs.ContainerImage.fromDockerImageAsset(imageAsset),
@@ -168,6 +172,10 @@ export class MinervaStack extends Stack {
 				OUTPUT_QUEUE_URL: outputQueue.queueUrl,
 				AWS_REGION: this.region,
 			},
+			logging: ecs.LogDrivers.awsLogs({
+				logGroup: logGroup,
+				streamPrefix: 'ecs',
+			}),
 		});
 
 		inputQueue.grantConsumeMessages(taskDefinition.taskRole);
