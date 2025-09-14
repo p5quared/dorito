@@ -7,7 +7,7 @@ interface OceanStackProps extends StackProps { }
 export class OceanStack extends Stack {
 	public readonly vpc: ec2.Vpc;
 
-	constructor(scope: Construct, id: string, props: OceanStackProps) {
+	constructor(scope: Construct, id: string, props?: OceanStackProps) {
 		super(scope, id, props);
 
 
