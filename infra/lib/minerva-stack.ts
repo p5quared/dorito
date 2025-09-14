@@ -1,7 +1,9 @@
 import { CfnOutput, Duration, Stack, StackProps } from 'aws-cdk-lib';
+import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
+import * as sns from 'aws-cdk-lib/aws-sns';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ecr_assets from 'aws-cdk-lib/aws-ecr-assets';
@@ -11,12 +13,14 @@ import { Construct } from 'constructs';
 
 interface MinervaStackProps extends StackProps {
 	vpc: ec2.Vpc
+	dataSavedTopic: sns.Topic
 }
 
 export class MinervaStack extends Stack {
 	private cluster: ecs.Cluster;
+	private readonly dataSavedTopic: sns.Topic;
 
-	constructor(scope: Construct, id: string, props?: MinervaStackProps) {
+	constructor(scope: Construct, id: string, props: MinervaStackProps) {
 		super(scope, id, props);
 
 		this.cluster = new ecs.Cluster(this, 'Minerva-ECS-Cluster', {
@@ -24,6 +28,7 @@ export class MinervaStack extends Stack {
 			vpc: props?.vpc,
 			containerInsights: true,
 		});
+		this.dataSavedTopic = props.dataSavedTopic;
 	}
 
 	createLambdaWorker(workerType: string) {
@@ -130,7 +135,7 @@ export class MinervaStack extends Stack {
 		return inputQueue;
 	}
 
-	createECSWorker(workerType: string, outputQueue: sqs.IQueue) {
+	createECSWorker(workerType: string, topicEventType: string, outputQueue: sqs.IQueue) {
 		const workerTypeLower = workerType.toLowerCase();
 
 		const inputDeadLetterQueue = new sqs.Queue(this, `${workerType}-Input-DLQ`, {
@@ -147,6 +152,17 @@ export class MinervaStack extends Stack {
 			},
 		});
 
+		this.dataSavedTopic.addSubscription(
+			new snsSubscriptions.SqsSubscription(inputQueue, {
+				rawMessageDelivery: true,
+				filterPolicy: {
+					eventType: sns.SubscriptionFilter.stringFilter({
+						allowlist: [topicEventType],
+					})
+				}
+			})
+		)
+
 
 		const imageAsset = new ecr_assets.DockerImageAsset(this, `${workerType}-Image`, {
 			directory: '../minerva',
@@ -155,6 +171,10 @@ export class MinervaStack extends Stack {
 
 		const taskDefinition = new ecs.FargateTaskDefinition(this, `${workerType}-TaskDef`, {
 			family: `minerva-${workerTypeLower}-worker`,
+			runtimePlatform: {
+				cpuArchitecture: ecs.CpuArchitecture.ARM64,
+				operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
+			},
 			cpu: 1024,
 			memoryLimitMiB: 2048,
 		});

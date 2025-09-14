@@ -81,7 +81,7 @@ export class ReservoirStack extends Stack {
 	//   },
 	//
 	persist_topic(
-		topic: sns.Topic,
+		inputTopic: sns.Topic,
 		handlerLocation: string,
 		uniqueId: string,
 	) {
@@ -91,7 +91,7 @@ export class ReservoirStack extends Stack {
 			memorySize: 128,
 			environment: {
 				DYNAMODB_TABLE_NAME: this.table.tableName,
-				SNS_TOPIC_ARN: topic.topicArn,
+				OUTPUT_SNS_TOPIC_ARN: this.snsTopic.topicArn,
 			},
 			runtime: lambda.Runtime.NODEJS_LATEST,
 		});
@@ -105,7 +105,7 @@ export class ReservoirStack extends Stack {
 			retentionPeriod: Duration.days(14),
 			deadLetterQueue: {
 				queue: dlq,
-				maxReceiveCount: 3,
+				maxReceiveCount: 1,
 			},
 		});
 	  
@@ -116,18 +116,18 @@ export class ReservoirStack extends Stack {
 		lambdaFunction.addEventSource(
 			new lambdaEventSources.SqsEventSource(inputQueue, {
 				batchSize: 10,
-				maxBatchingWindow: Duration.minutes(5),
+				maxBatchingWindow: Duration.seconds(10),
 			})
 		);
 
-		topic.addSubscription(
+		inputTopic.addSubscription(
 			new snsSubscriptions.SqsSubscription(inputQueue, {
 				rawMessageDelivery: true,
 			})
 		);
-		console.log(`Topic ${topic.topicArn} is being persisted by ${lambdaFunction.functionName}`)
+		console.log(`Topic ${inputTopic.topicArn} is being persisted by ${lambdaFunction.functionName}`)
 
-		return inputQueue;
+		return uniqueId;
 	}
 
 	private createGeneralHandlingQueue(uniqueId: string) {
