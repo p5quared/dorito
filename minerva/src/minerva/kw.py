@@ -1,6 +1,6 @@
 from typing import List, Tuple
 
-from message_types import KeyWordResult
+from .message_types import KeyWordResult
 
 
 class KeywordWorker:
