@@ -155,6 +155,7 @@ export class ReservoirStack extends Stack {
 			memorySize: 128,
 			environment: {
 				DYNAMODB_TABLE_NAME: this.table.tableName,
+				OUTPUT_SNS_TOPIC_ARN: this.snsTopic.topicArn,
 			},
 			runtime: lambda.Runtime.NODEJS_LATEST,
 		});
