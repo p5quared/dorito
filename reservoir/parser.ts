@@ -2,6 +2,7 @@ import * as z from "zod"
 
 const EventTypeEnumSchema = z.enum([
 	"reservoir.raw",
+	"reservoir.keyword",
 	"trawl.raw",
 ]as const)
 
@@ -27,16 +28,25 @@ const KeyWordSchema = z.object({
   confidence: z.number().min(0).max(1)
 })
 
-type KeyWordResult = z.infer<typeof KeyWordSchema>
-
-
 const RawDataProducedEnvelopeSchema = z.object({
   meta: EventMetadataSchema,
   data: RawDataSchema
 })
 
 export type RawDataProducedEvent = z.infer<typeof RawDataProducedEnvelopeSchema>
+
 export const validateRawDataProducedEvent = (a: any): a is RawDataProducedEvent => {
   RawDataProducedEnvelopeSchema.parse(a)
   return true
+}
+
+const KeywordProducedEnvelopeSchema = z.object({
+  meta: EventMetadataSchema,
+  data: KeyWordSchema
+})
+export type KeywordProducedEvent = z.infer<typeof KeywordProducedEnvelopeSchema>
+
+export const validateKeywordProducedEvent = (a: any): a is KeywordProducedEvent => {
+  KeywordProducedEnvelopeSchema.parse(a)
+  	return true
 }

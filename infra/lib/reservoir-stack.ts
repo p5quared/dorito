@@ -167,7 +167,7 @@ export class ReservoirStack extends Stack {
 		lambdaFunction.addEventSource(
 			new lambdaEventSources.SqsEventSource(inputQueue, {
 				batchSize: 10,
-				maxBatchingWindow: Duration.seconds(30),
+				maxBatchingWindow: Duration.seconds(5),
 			})
 		);
 
