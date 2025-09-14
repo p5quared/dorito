@@ -7,10 +7,9 @@ import { SNSStrategyBuilder } from './publisher';
 
 
 const RawDataPublisher = new SNSStrategyBuilder<RawDataProducedEvent>()
-	.withSnsTopicArn(getConfigRequired('SNS_TOPIC_ARN'))
-	.withEventType("trawl.raw")
+	.withSnsTopicArn(getConfigRequired('OUTPUT_SNS_TOPIC_ARN'))
+	.withEventType("reservoir.raw")
 	.withAwsRegion(getConfigRequired('AWS_REGION'))
-	.withCorrelationIdResolver((redditData) => redditData.meta.correlation_id)
 	.build();
 
 
