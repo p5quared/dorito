@@ -9,6 +9,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ecr_assets from 'aws-cdk-lib/aws-ecr-assets';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as applicationautoscaling from 'aws-cdk-lib/aws-applicationautoscaling';
 import { Construct } from 'constructs';
 
 interface MinervaStackProps extends StackProps {
@@ -205,11 +206,27 @@ export class MinervaStack extends Stack {
 			serviceName: `minerva-${workerTypeLower}-service`,
 			cluster: this.cluster,
 			taskDefinition: taskDefinition,
-			desiredCount: 0,
 			assignPublicIp: true,
 		});
 
-		// Create outputs
+		const scalableTarget = new applicationautoscaling.ScalableTarget(this, `${workerType}-ScalableTarget`, {
+			serviceNamespace: applicationautoscaling.ServiceNamespace.ECS,
+			resourceId: `service/${this.cluster.clusterName}/${service.serviceName}`,
+			scalableDimension: 'ecs:service:DesiredCount',
+			minCapacity: 0,
+			maxCapacity: 1,
+		});
+
+		scalableTarget.scaleOnMetric(`${workerType}-ScaleOnQueueDepth`, {
+			metric: inputQueue.metricApproximateNumberOfMessagesVisible(),
+			scalingSteps: [
+				{ upper: 0, change: 0 },
+				{ lower: 1, change: 1 },
+			],
+			adjustmentType: applicationautoscaling.AdjustmentType.EXACT_CAPACITY,
+			cooldown: Duration.minutes(1),
+		});
+
 		new CfnOutput(this, `${workerType}-ECS-InputQueueUrl`, {
 			value: inputQueue.queueUrl,
 			description: `Minerva ${workerType} ECS worker input queue URL`,
