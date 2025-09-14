@@ -16,7 +16,7 @@ interface ReservoirStackProps extends StackProps {
 
 export class ReservoirStack extends Stack {
 	private readonly table: dynamodb.Table;
-	private readonly snsTopic: sns.Topic;
+	public readonly snsTopic: sns.Topic;
 
 	constructor(scope: Construct, id: string, props?: ReservoirStackProps) {
 		super(scope, id, props);
@@ -85,19 +85,6 @@ export class ReservoirStack extends Stack {
 		handlerLocation: string,
 		uniqueId: string,
 	) {
-		const deadLetterQueue = new sqs.Queue(this, `${uniqueId}-DLQ`, {
-			retentionPeriod: Duration.days(14),
-		});
-
-		const queue = new sqs.Queue(this, `${uniqueId}-Queue`, {
-			visibilityTimeout: Duration.minutes(1),
-			retentionPeriod: Duration.days(14),
-			deadLetterQueue: {
-				queue: deadLetterQueue,
-				maxReceiveCount: 3,
-			},
-		});
-
 		const lambdaFunction = new nodejs.NodejsFunction(this, `${uniqueId}-Lambda`, {
 			entry: handlerLocation,
 			timeout: Duration.seconds(10),
@@ -109,56 +96,56 @@ export class ReservoirStack extends Stack {
 			runtime: lambda.Runtime.NODEJS_LATEST,
 		});
 
-		lambdaFunction.addToRolePolicy(
-			new iam.PolicyStatement({
-				effect: iam.Effect.ALLOW,
-				actions: [
-					'sqs:ReceiveMessage',
-					'sqs:DeleteMessage',
-					'sqs:GetQueueAttributes',
-				],
-				resources: [queue.queueArn],
-			})
-		);
+		const dlq = new sqs.Queue(this, `${uniqueId}-DLQ`, {
+			retentionPeriod: Duration.days(14),
+		});
 
-		lambdaFunction.addToRolePolicy(
-			new iam.PolicyStatement({
-				effect: iam.Effect.ALLOW,
-				actions: [
-					'dynamodb:PutItem',
-					'dynamodb:UpdateItem',
-				],
-				resources: [this.table.tableArn],
-			})
-		);
-
-		lambdaFunction.addToRolePolicy(
-			new iam.PolicyStatement({
-				effect: iam.Effect.ALLOW,
-				actions: [
-					'sns:Publish',
-				],
-				resources: [topic.topicArn],
-			})
-		);
+		const inputQueue = new sqs.Queue(this, `${uniqueId}-Queue`, {
+			visibilityTimeout: Duration.minutes(1),
+			retentionPeriod: Duration.days(14),
+			deadLetterQueue: {
+				queue: dlq,
+				maxReceiveCount: 3,
+			},
+		});
+	  
+		inputQueue.grantConsumeMessages(lambdaFunction);
+		this.table.grantWriteData(lambdaFunction);
+		this.snsTopic.grantPublish(lambdaFunction);
 
 		lambdaFunction.addEventSource(
-			new lambdaEventSources.SqsEventSource(queue, {
+			new lambdaEventSources.SqsEventSource(inputQueue, {
 				batchSize: 10,
 				maxBatchingWindow: Duration.minutes(5),
 			})
 		);
 
 		topic.addSubscription(
-			new snsSubscriptions.SqsSubscription(queue, {
+			new snsSubscriptions.SqsSubscription(inputQueue, {
 				rawMessageDelivery: true,
 			})
 		);
 		console.log(`Topic ${topic.topicArn} is being persisted by ${lambdaFunction.functionName}`)
+
+		return inputQueue;
 	}
 
-	persist_queues(
-		queues: sqs.Queue[],
+	private createGeneralHandlingQueue(uniqueId: string) {
+		const dlq = new sqs.Queue(this, `${uniqueId}-DLQ`, {
+			retentionPeriod: Duration.days(14),
+		});
+
+		return new sqs.Queue(this, `${uniqueId}-Queue`, {
+			visibilityTimeout: Duration.minutes(1),
+			retentionPeriod: Duration.days(14),
+			deadLetterQueue: {
+				queue: dlq,
+				maxReceiveCount: 3,
+			},
+		});
+	}
+
+	newPersistenceQueue(
 		handlerLocation: string,
 		uniqueId: string,
 	) {
@@ -172,36 +159,19 @@ export class ReservoirStack extends Stack {
 			runtime: lambda.Runtime.NODEJS_LATEST,
 		});
 
-		lambdaFunction.addToRolePolicy(
-			new iam.PolicyStatement({
-				effect: iam.Effect.ALLOW,
-				actions: [
-					'sqs:ReceiveMessage',
-					'sqs:DeleteMessage',
-					'sqs:GetQueueAttributes',
-				],
-				resources: [queues.map(q => q.queueArn).join(',')],
-			})
-		);
+		const inputQueue = this.createGeneralHandlingQueue(uniqueId);
+		inputQueue.grantConsumeMessages(lambdaFunction);
+		this.table.grantWriteData(lambdaFunction);
+		this.snsTopic.grantPublish(lambdaFunction);
 
-		lambdaFunction.addToRolePolicy(
-			new iam.PolicyStatement({
-				effect: iam.Effect.ALLOW,
-				actions: [
-					'dynamodb:PutItem',
-					'dynamodb:UpdateItem',
-				],
-				resources: [this.table.tableArn],
-			})
-		);
-
-		queues.forEach(q => lambdaFunction.addEventSource(
-			new lambdaEventSources.SqsEventSource(q, {
+		lambdaFunction.addEventSource(
+			new lambdaEventSources.SqsEventSource(inputQueue, {
 				batchSize: 10,
-				maxBatchingWindow: Duration.minutes(5),
-			}))
+				maxBatchingWindow: Duration.seconds(30),
+			})
 		);
 
-		queues.forEach(q => console.log(`Queue ${q.queueArn} is being persisted by ${lambdaFunction.functionName}`));
+		console.log(`New persistence queue created with handler ${lambdaFunction.functionName}`)
+		return inputQueue;
 	}
 }
