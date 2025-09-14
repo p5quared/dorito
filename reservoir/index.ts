@@ -6,21 +6,21 @@ import { SQSHandler } from 'aws-lambda';
 import { SNSStrategyBuilder } from './publisher';
 
 
-const RedditDataPublisher = new SNSStrategyBuilder<RawDataProducedEvent>()
+const RawDataPublisher = new SNSStrategyBuilder<RawDataProducedEvent>()
 	.withSnsTopicArn(getConfigRequired('SNS_TOPIC_ARN'))
-	.withEventType("trawl.reddit")
+	.withEventType("trawl.raw")
 	.withAwsRegion(getConfigRequired('AWS_REGION'))
 	.withCorrelationIdResolver((redditData) => redditData.meta.correlation_id)
 	.build();
 
 
-const RedditRecordHandler = new MessageHandlerBuilder<RawDataProducedEvent>()
+const RawDataRecordHandler = new MessageHandlerBuilder<RawDataProducedEvent>()
 	.withValidator(validateRawDataProducedEvent)
 	.withHandler(saveRedditDataDDB)
 	.withHandler(printMessage)
-	.withPublisher(RedditDataPublisher.publishData.bind(RedditDataPublisher))
+	.withPublisher(RawDataPublisher.publishData.bind(RawDataPublisher))
 	.build()
 
-const RedditEventHandler = eventHandler<RawDataProducedEvent>(RedditRecordHandler.handle.bind(RedditRecordHandler))
+const RawDataEventHandler = eventHandler<RawDataProducedEvent>(RawDataRecordHandler.handle.bind(RawDataRecordHandler))
 
-export const handler: SQSHandler = RedditEventHandler
+export const handler: SQSHandler = RawDataEventHandler
