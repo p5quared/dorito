@@ -1,9 +1,9 @@
 import json
 import os
 
-from .message_types import KeyWordResult, RawDataProducedEvent
-from .kw import KeywordWorker
-from .publisher import MessagingInterfaceBuilder, PrintMessagingInterface
+from message_types import KeyWordResult, RawDataProducedEvent
+from kw import KeywordWorker
+from publisher import MessagingInterfaceBuilder, PrintMessagingInterface
 
 HANDLERS = {}
 
@@ -27,9 +27,11 @@ def keyword_handler(body):
     kws = [{'keyword': kw, 'confidence': float(conf)} for kw, conf in kws]
     kws_publishable = [KeyWordResult(**kw) for kw in kws]
     kw_publisher = MessagingInterfaceBuilder().with_region(AWS_REGION).with_queue_url(OUTPUT_QEUE_URL).build()
+    print(raw_data.data.body)
     kw_publisher = PrintMessagingInterface()
     for kw in kws_publishable:
         kw_publisher.publish(kw.model_dump_json())
+    print("=" * 40)
 
 def ecs_handler(batch_size: int = 10, wait_time_seconds: int = 20):
     """
@@ -57,7 +59,7 @@ def ecs_handler(batch_size: int = 10, wait_time_seconds: int = 20):
     print(f"Polling configuration: batch_size={batch_size}, wait_time={wait_time_seconds}s")
     print(f"Input queue: {INPUT_QUEUE_URL}")
 
-    for _ in range(3):
+    for _ in range(1):
         try:
             messages = input_queue.get_messages(
                 max_messages=batch_size,
