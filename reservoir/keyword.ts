@@ -2,17 +2,16 @@ import { SQSHandler } from "aws-lambda";
 import { eventHandler, MessageHandlerBuilder } from "./handling";
 import { KeywordProducedEvent, validateKeywordProducedEvent } from "./parser";
 import { SNSStrategyBuilder } from "./publisher";
-import { printMessage } from "./utils";
+import { getConfigRequired, printMessage } from "./utils";
 
 const KeywordPublisher = new SNSStrategyBuilder<KeywordProducedEvent>()
-	.withSnsTopicArn(process.env.SNS_TOPIC_ARN!)
+	.withSnsTopicArn(getConfigRequired('OUTPUT_SNS_TOPIC_ARN'))
 	.withEventType("reservoir.keyword")
-	.withAwsRegion(process.env.AWS_REGION!)
-	.withCorrelationIdResolver((keywordData) => keywordData.meta.correlation_id)
+	.withAwsRegion(getConfigRequired('AWS_REGION'))
 	.build();
 
 const KeywordRecordHandler = new MessageHandlerBuilder<KeywordProducedEvent>()
-	.withValidator(validateKeywordProducedEvent) // TODO: Implement validation
+	.withValidator(validateKeywordProducedEvent)
 	.withHandler(printMessage)
 	.withPublisher(KeywordPublisher.publishData.bind(KeywordPublisher))
 	.build()
