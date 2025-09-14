@@ -1,9 +1,9 @@
 import json
 import os
 
-from message_types import KeyWordResult, RawDataProducedEvent
-from kw import KeywordWorker
-from publisher import MessagingInterfaceBuilder, PrintMessagingInterface
+from .message_types import KeyWordResult, RawDataProducedEvent
+from .kw import KeywordWorker
+from .publisher import MessagingInterfaceBuilder, PrintMessagingInterface
 
 HANDLERS = {}
 
@@ -14,7 +14,7 @@ def register_handler(name: str):
         return func
     return decorator
 
-AWS_REGION = os.getenv('AWS_REGION', 'us-west-2')
+AWS_REGION = os.getenv('AWS_REGION', 'us-east-2')
 OUTPUT_QEUE_URL = os.getenv('OUTPUT_QUEUE_URL', 'MISSING')
 INPUT_QUEUE_URL = os.getenv('INPUT_QUEUE_URL', 'MISSING')
 
@@ -48,7 +48,7 @@ def ecs_handler(batch_size: int = 10, wait_time_seconds: int = 20):
 
     handler = HANDLERS[service_type]
 
-    messaging_interface = MessagingInterfaceBuilder()\
+    input_queue = MessagingInterfaceBuilder()\
         .with_region(AWS_REGION)\
         .with_queue_url(INPUT_QUEUE_URL)\
         .build()
@@ -59,7 +59,7 @@ def ecs_handler(batch_size: int = 10, wait_time_seconds: int = 20):
 
     for _ in range(3):
         try:
-            messages = messaging_interface.get_messages(
+            messages = input_queue.get_messages(
                 max_messages=batch_size,
                 wait_time_seconds=wait_time_seconds
             )
@@ -88,12 +88,15 @@ def ecs_handler(batch_size: int = 10, wait_time_seconds: int = 20):
                     print(f"Message body: {message.get('Body', 'N/A')}")
             for receipt_handle in successfully_processed:
                 try:
-                    messaging_interface.delete_message(receipt_handle)
+                    input_queue.delete_message(receipt_handle)
                 except Exception as e:
                     print(f"Error deleting message with receipt handle {receipt_handle}: {e}")
             print(f"Processed batch: {len(successfully_processed)}/{len(messages)} successful")
         except KeyboardInterrupt:
             print("\nReceived interrupt signal, shutting down gracefully...")
 
-if __name__ == "__main__":
+def main():
     ecs_handler()
+
+if __name__ == "__main__":
+    main()
