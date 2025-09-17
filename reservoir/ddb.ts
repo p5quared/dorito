@@ -1,7 +1,7 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { any, Entity, item, PutItemCommand, string, Table } from "dynamodb-toolbox";
-import { RawDataProducedEvent } from "./parser";
+import { any, Entity, item, number, PutItemCommand, string, Table } from "dynamodb-toolbox";
+import { PyABSAProducedEvent, RawDataProducedEvent } from "./parser";
 
 const ddbClient = new DynamoDBClient()
 const documentClient = DynamoDBDocumentClient.from(ddbClient)
@@ -40,36 +40,80 @@ const documentClient = DynamoDBDocumentClient.from(ddbClient)
 // }
 
 const QuickSaveTable = new Table({
-  documentClient,
-  partitionKey: {
-	name: 'PK',
-	type: 'string'
-  },
-  sortKey: {
-	name: 'SK',
-	type: 'string'
-  },
-  name: process.env.DYNAMODB_TABLE_NAME!
+	documentClient,
+	partitionKey: {
+		name: 'PK',
+		type: 'string'
+	},
+	sortKey: {
+		name: 'SK',
+		type: 'string'
+	},
+	name: process.env.DYNAMODB_TABLE_NAME!
 })
 
-export const RawDataEntity = new Entity({
-  name: 'RAW_DATA',
-  table: QuickSaveTable,
-  schema: item({
-	id: string().key(),
-	sourceDate: string(),
-	data: any()
-  }).and(prevSchema => ({
-	PK: string().key().link<typeof prevSchema>(({id}) => `RAW_DATA#${id}`),
-	SK: string().key().link<typeof prevSchema>(({id}) => `RAW_DATA#${id}`),
-  }))
+export const DataEntity = new Entity({
+	name: 'DATA',
+	table: QuickSaveTable,
+	schema: item({
+		dataId: string().key(),
+		sourceDate: string(),
+		body: string()
+	}).and(prevSchema => ({
+		PK: string().key().link<typeof prevSchema>(({ dataId }) => `DATA#${dataId}`),
+		SK: string().key().link<typeof prevSchema>(({ dataId }) => `DATA#${dataId}`),
+	}))
+})
+
+export const TopicEntity = new Entity({
+	name: 'TOPIC',
+	table: QuickSaveTable,
+	schema: item({
+		topicId: string().key(),
+	}).and(prevSchema => ({
+		PK: string().key().link<typeof prevSchema>(({ topicId }) => `TOPIC#${topicId}`),
+		SK: string().key().link<typeof prevSchema>(({ topicId }) => `TOPIC#${topicId}`),
+	}))
+})
+
+export const TopicToRawDataEntity = new Entity({
+	name: 'TOPIC_TO_DATA',
+	table: QuickSaveTable,
+	schema: item({
+		topicId: string().key(), // the actual topic e.g. "finance"
+		dataId: string().key(),
+		confidence: number(), // 0 to 1
+		sentiment: number(), // -1, 0, 1
+		inferenceTimestamp: string()
+	}).and(prevSchema => ({
+		PK: string().key().link<typeof prevSchema>(({ topicId }) => `TOPIC#${topicId}`),
+		SK: string().key().link<typeof prevSchema>(({ dataId }) => `DATA#${dataId}`),
+	}))
 })
 
 export const saveRedditDataDDB = async (dataProduced: RawDataProducedEvent) => {
-  await RawDataEntity.build(PutItemCommand)
-  .item({
-	id: dataProduced.data.id,
-	sourceDate: dataProduced.meta.source_date,
-	data: dataProduced.data
-  }).options({ returnValues: 'ALL_OLD'}).send()
+	await DataEntity.build(PutItemCommand)
+		.item({
+			dataId: dataProduced.data.id,
+			sourceDate: dataProduced.meta.source_date,
+			body: dataProduced.data.body
+		}).options({ returnValues: 'ALL_OLD' }).send()
+}
+
+export const saveTopic = async (topicId: string) => {
+	await TopicEntity.build(PutItemCommand)
+		.item({
+			topicId
+		}).options({ returnValues: 'ALL_OLD' }).send()
+}
+
+export const saveTopicDataRelation = async (topicId: string, dataId: string, confidence: number, sentiment: number) => {
+	await TopicToRawDataEntity.build(PutItemCommand)
+		.item({
+			topicId,
+			dataId,
+			confidence,
+			sentiment,
+			inferenceTimestamp: new Date().toISOString()
+		}).options({ returnValues: 'ALL_OLD' }).send()
 }
