@@ -1,10 +1,10 @@
-import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
+import { CfnOutput, Duration, RemovalPolicy, SecretValue, Stack, StackProps } from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
+import * as rds from 'aws-cdk-lib/aws-rds';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
-import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
@@ -18,7 +18,7 @@ export class ReservoirStack extends Stack {
 	private readonly table: dynamodb.Table;
 	public readonly snsTopic: sns.Topic;
 
-	constructor(scope: Construct, id: string, props?: ReservoirStackProps) {
+	constructor(scope: Construct, id: string, props: ReservoirStackProps) {
 		super(scope, id, props);
 
 		this.table = new dynamodb.Table(this, 'DDBTable', {
@@ -108,7 +108,7 @@ export class ReservoirStack extends Stack {
 				maxReceiveCount: 1,
 			},
 		});
-	  
+
 		inputQueue.grantConsumeMessages(lambdaFunction);
 		this.table.grantWriteData(lambdaFunction);
 		this.snsTopic.grantPublish(lambdaFunction);
@@ -172,7 +172,7 @@ export class ReservoirStack extends Stack {
 			})
 		);
 
-		console.log(`New persistence queue created with handler ${lambdaFunction.functionName}`)
+		console.log(`${uniqueId} is being persisted by ${lambdaFunction.functionName}`)
 		return inputQueue;
 	}
 }
