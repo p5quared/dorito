@@ -100,7 +100,7 @@ export class TrawlerStack extends Stack {
 		});
 
 		if (missingVars.length > 0) {
-			throw new Error(
+			console.error(
 				`Missing required environment variables for Reddit API: ${missingVars.join(', ')}. ` +
 				'Please ensure these are set before deploying the stack.'
 			);

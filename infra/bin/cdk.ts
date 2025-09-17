@@ -24,19 +24,19 @@ const rawDataSavedEvent = reservoirStack.persist_topic(
 	'reservoir.raw',
 )
 
-const keyword_saver = reservoirStack.newPersistenceQueue(
-  '../reservoir/keyword.ts',
-  'Keyword'
+
+const reservoirPyABSAQueue = reservoirStack.newPersistenceQueue(
+	'../reservoir/pyabsa.ts',
+	'PyABSA'
 )
 
-const minerva = new MinervaStack(app, 'Minerva', { 
-  vpc,
-  dataSavedTopic: reservoirStack.snsTopic
+const minerva = new MinervaStack(app, 'Minerva', {
+	vpc,
+	dataSavedTopic: reservoirStack.snsTopic
 })
 
 minerva.createECSWorker(
-  'KEYWORD', 
-  rawDataSavedEvent,
-  keyword_saver
+	'PYABSA',
+	rawDataSavedEvent,
+	reservoirPyABSAQueue
 )
-
