@@ -1,5 +1,6 @@
 import { PublishCommand, SNSClient } from "@aws-sdk/client-sns";
-import { EventType, RawDataProducedEvent } from "./parser";
+import { EventType, PyABSAProducedEvent, RawDataProducedEvent } from "./parser";
+import { getConfigRequired } from "./utils";
 
 export class SNSStrategy<T> {
 	private readonly sns_client: SNSClient
@@ -74,4 +75,25 @@ export function createRedditDataSavedEventPublisher(
 		.withEventType("reservoir.raw")
 		.withAwsRegion(awsRegion)
 		.build();
+}
+
+export function createPyABSADataSavedEventPublisher(
+  snsTopicArn: string,
+  awsRegion: string
+): SNSStrategy<PyABSAProducedEvent['data']> {
+	return new SNSStrategyBuilder<PyABSAProducedEvent['data']>()
+		.withSnsTopicArn(snsTopicArn)
+		.withEventType("reservoir.keyword")
+		.withAwsRegion(awsRegion)
+		.build();
+}
+
+export const publishKeyword = async (keyword: string) => {
+  const KeywordPublisher = new SNSStrategyBuilder<{ keyword: string }>()
+  .withSnsTopicArn(getConfigRequired('OUTPUT_SNS_TOPIC_ARN'))
+  .withEventType("reservoir.keyword")
+  .withAwsRegion(getConfigRequired('AWS_REGION'))
+  .build();
+
+  await KeywordPublisher.publishData({ keyword });
 }
