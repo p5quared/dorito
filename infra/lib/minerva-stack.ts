@@ -28,6 +28,7 @@ export class MinervaStack extends Stack {
 			clusterName: 'minerva-cluster',
 			vpc: props?.vpc,
 			containerInsights: true,
+			enableFargateCapacityProviders: true,
 		});
 		this.dataSavedTopic = props.dataSavedTopic;
 	}
@@ -149,7 +150,7 @@ export class MinervaStack extends Stack {
 			retentionPeriod: Duration.days(14),
 			deadLetterQueue: {
 				queue: inputDeadLetterQueue,
-				maxReceiveCount: 3,
+				maxReceiveCount: 2,
 			},
 		});
 
@@ -177,7 +178,7 @@ export class MinervaStack extends Stack {
 				operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
 			},
 			cpu: 1024,
-			memoryLimitMiB: 2048,
+			memoryLimitMiB: 4096,
 		});
 
 		const logGroup = new logs.LogGroup(this, `${workerType}-LogGroup`, {
@@ -207,6 +208,12 @@ export class MinervaStack extends Stack {
 			cluster: this.cluster,
 			taskDefinition: taskDefinition,
 			assignPublicIp: true,
+			capacityProviderStrategies: [
+				{
+					capacityProvider: 'FARGATE_SPOT',
+					weight: 1,
+				},
+			],
 		});
 
 		const scalableTarget = new applicationautoscaling.ScalableTarget(this, `${workerType}-ScalableTarget`, {
@@ -214,7 +221,7 @@ export class MinervaStack extends Stack {
 			resourceId: `service/${this.cluster.clusterName}/${service.serviceName}`,
 			scalableDimension: 'ecs:service:DesiredCount',
 			minCapacity: 0,
-			maxCapacity: 1,
+			maxCapacity: 10,
 		});
 
 		scalableTarget.scaleOnMetric(`${workerType}-ScaleOnQueueDepth`, {
@@ -222,6 +229,8 @@ export class MinervaStack extends Stack {
 			scalingSteps: [
 				{ upper: 0, change: 0 },
 				{ lower: 1, change: 1 },
+				{ lower: 100, change: 2 },
+				{ lower: 1000, change: 10 },
 			],
 			adjustmentType: applicationautoscaling.AdjustmentType.EXACT_CAPACITY,
 			cooldown: Duration.minutes(1),
