@@ -66,28 +66,6 @@ export class SNSStrategyBuilder<T> {
 	}
 }
 
-export function createRedditDataSavedEventPublisher(
-	snsTopicArn: string,
-	awsRegion: string
-): SNSStrategy<RawDataProducedEvent['data']> {
-	return new SNSStrategyBuilder<RawDataProducedEvent['data']>()
-		.withSnsTopicArn(snsTopicArn)
-		.withEventType("reservoir.raw")
-		.withAwsRegion(awsRegion)
-		.build();
-}
-
-export function createPyABSADataSavedEventPublisher(
-  snsTopicArn: string,
-  awsRegion: string
-): SNSStrategy<PyABSAProducedEvent['data']> {
-	return new SNSStrategyBuilder<PyABSAProducedEvent['data']>()
-		.withSnsTopicArn(snsTopicArn)
-		.withEventType("reservoir.keyword")
-		.withAwsRegion(awsRegion)
-		.build();
-}
-
 export const publishKeyword = async (keyword: string) => {
   const KeywordPublisher = new SNSStrategyBuilder<{ keyword: string }>()
   .withSnsTopicArn(getConfigRequired('OUTPUT_SNS_TOPIC_ARN'))
