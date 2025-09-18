@@ -13,26 +13,20 @@ class RedditType(str, Enum):
 @dataclass
 class RedditData:
     id: str
-    reddit_type: RedditType
-    subreddit: str
     body: str
 
     @classmethod
     def from_submission(cls, submission: Submission):
         return cls(
             id=submission.id,
-            subreddit=submission.subreddit.display_name,
             body=submission.selftext,
-            reddit_type=RedditType.SUBMISSION
         )
 
     @classmethod
     def from_comment(cls, comment: Comment):
         return cls(
             id=comment.id,
-            subreddit=comment.subreddit.display_name,
             body=comment.body,
-            reddit_type=RedditType.COMMENT,
         )
 
     @classmethod

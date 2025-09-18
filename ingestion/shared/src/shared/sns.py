@@ -16,15 +16,10 @@ logger = logging.getLogger(__name__)
 class SourceType(str, Enum):
     REDDIT='REDDIT'
 
-class EventType(str, Enum):
-    DATA_PRODUCED='data.produced'
-
 @dataclass
 class EventMeta:
     correlation_id: str
-    source_type: SourceType
     source_date: str
-    event_type: EventType = EventType.DATA_PRODUCED
 
 @dataclass
 class DataProducedEvent:
@@ -60,14 +55,13 @@ class SNSFacade(LoggingMixin, RedditDataSink):
         )
 
         message_id = response.get("MessageId")
-        self.log_debug(f"Successfully published event to {self.topic_arn}, MessageId: {message_id}")
+        self.log_info(f"Successfully published event to {self.topic_arn}, MessageId: {message_id}")
 
         return message_id
     
     def make_event(self, body: RedditData) -> DataProducedEvent:
         meta = EventMeta(
             correlation_id=get_correlation_id(body),
-            source_type=self.SOURCE,
             source_date=str(datetime.now())
         )
         return DataProducedEvent(
