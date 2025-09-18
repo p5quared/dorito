@@ -4,6 +4,9 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
+# WARN: I swear to fucking god, do not forget
+# that these depenencies must be in sync with those
+# in use in our training/exporting environments
 dependencies = [
   "boto3>=1.40.29",
   "pydantic>=2.11.7",
@@ -11,4 +14,7 @@ dependencies = [
   "model2vec==0.6.0",
   "scikit-learn==1.7.2",
   "fastembed>=0.7.3",
+  "pyabsa==2.4.2",
+  "spacy>=3.8.7",
+  "pip>=25.2",
 ]
