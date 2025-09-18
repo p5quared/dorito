@@ -69,3 +69,21 @@ export const validatePyABSAProducedEvent = (a: any): a is PyABSAProducedEvent =>
 	PyABSAProducedEnvelopeSchema.parse(a)
 	return true
 }
+
+const EmbeddingSchema = z.object({
+  keyword: z.string(),
+  vector: z.array(z.number()),
+  dimension: z.number().int().positive()
+})
+
+const EmbeddingProducedEnvelopeSchema = z.object({
+  meta: EventMetadataSchema,
+  	data: EmbeddingSchema
+  })
+
+export type EmbeddingProducedEvent = z.infer<typeof EmbeddingProducedEnvelopeSchema>
+
+export const validateEmbeddingProducedEvent = (a: any): a is EmbeddingProducedEvent => {
+  EmbeddingProducedEnvelopeSchema.parse(a)
+  	return true
+}
