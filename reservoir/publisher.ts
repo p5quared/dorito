@@ -1,5 +1,5 @@
 import { PublishCommand, SNSClient } from "@aws-sdk/client-sns";
-import { EventType, PyABSAProducedEvent, RawDataProducedEvent } from "./parser";
+import { EventType } from "./parser";
 import { getConfigRequired } from "./utils";
 
 export class SNSStrategy<T> {
