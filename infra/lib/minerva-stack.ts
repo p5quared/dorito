@@ -221,7 +221,7 @@ export class MinervaStack extends Stack {
 			resourceId: `service/${this.cluster.clusterName}/${service.serviceName}`,
 			scalableDimension: 'ecs:service:DesiredCount',
 			minCapacity: 0,
-			maxCapacity: 10,
+			maxCapacity: 5,
 		});
 
 		scalableTarget.scaleOnMetric(`${workerType}-ScaleOnQueueDepth`, {
@@ -230,7 +230,7 @@ export class MinervaStack extends Stack {
 				{ upper: 0, change: 0 },
 				{ lower: 1, change: 1 },
 				{ lower: 100, change: 2 },
-				{ lower: 1000, change: 10 },
+				{ lower: 1000, change: 5 },
 			],
 			adjustmentType: applicationautoscaling.AdjustmentType.EXACT_CAPACITY,
 			cooldown: Duration.minutes(1),

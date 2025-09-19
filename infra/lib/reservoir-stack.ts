@@ -1,8 +1,7 @@
-import { CfnOutput, Duration, RemovalPolicy, SecretValue, Stack, StackProps } from 'aws-cdk-lib';
+import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
-import * as rds from 'aws-cdk-lib/aws-rds';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
@@ -115,7 +114,7 @@ export class ReservoirStack extends Stack {
 
 		lambdaFunction.addEventSource(
 			new lambdaEventSources.SqsEventSource(inputQueue, {
-				batchSize: 10,
+				batchSize: 100,
 				maxBatchingWindow: Duration.seconds(10),
 			})
 		);

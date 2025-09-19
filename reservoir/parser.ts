@@ -4,13 +4,13 @@ import * as z from "zod"
 // We define the events that this handler will emit, 
 // because every handler handles one type of message, they will
 // only ever need to emit one type of event
-// const EventTypeEnumSchema = z.enum([
-// 	"reservoir.raw",
-// 	"reservoir.keyword",
-// 	"trawl.raw",
-// ] as const)
+const EventTypeEnumSchema = z.enum([
+	"reservoir.raw",
+	"reservoir.keyword",
+	"trawl.raw",
+] as const)
 
-// export type EventType = z.infer<typeof EventTypeEnumSchema>
+export type EventType = z.infer<typeof EventTypeEnumSchema>
 
 const EventMetadataSchema = z.object({
 	correlation_id: z.string(),
