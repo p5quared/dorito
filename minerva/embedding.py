@@ -3,4 +3,4 @@ class EmbeddingWorker:
         from fastembed import TextEmbedding
         self.model = TextEmbedding(model_name=model_name)
     def embed(self, text: str):
-        return self.model.embed(text)
+        return list(list(self.model.embed(text))[0])
