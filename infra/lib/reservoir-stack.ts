@@ -51,6 +51,8 @@ export class ReservoirStack extends Stack {
 			topicName: 'ReservoirTopic',
 		})
 
+		this.createFrontendHandler('similar_topics.ts');
+
 		new CfnOutput(this, 'SNSTopicArn', {
 			value: this.snsTopic.topicArn,
 			description: 'Reservoir SNS Topic ARN',
@@ -70,8 +72,24 @@ export class ReservoirStack extends Stack {
 		});
 	}
 
-	createVectorBucket() {
+	createFrontendHandler(handlerName: string) {
+		const lambdaFunction = new nodejs.NodejsFunction(this, `${handlerName}-Lambda`, {
+			entry: '../reservoir/frontend/' + handlerName,
+			timeout: Duration.seconds(10),
+			memorySize: 128,
+			environment: {
+				DYNAMODB_TABLE_NAME: this.table.tableName,
+				OUTPUT_SNS_TOPIC_ARN: this.snsTopic.topicArn,
+				VECTOR_BUCKET_NAME: this.bucket.vectorBucketName,
+				VECTOR_INDEX_NAME: this.bucketIndex.indexName,
+			},
+			runtime: lambda.Runtime.NODEJS_LATEST,
+			bundling: {
+				externalModules: ['onnxruntime-node']
+			}
+		});
 
+		this.table.grantReadData(lambdaFunction);
 	}
 
 	// Filter example from AWS docs
@@ -176,6 +194,8 @@ export class ReservoirStack extends Stack {
 			environment: {
 				DYNAMODB_TABLE_NAME: this.table.tableName,
 				OUTPUT_SNS_TOPIC_ARN: this.snsTopic.topicArn,
+				VECTOR_BUCKET_NAME: this.bucket.vectorBucketName,
+				VECTOR_INDEX_NAME: this.bucketIndex.indexName,
 			},
 			runtime: lambda.Runtime.NODEJS_LATEST,
 		});
