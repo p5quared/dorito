@@ -1,6 +1,6 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { any, Entity, item, number, PutItemCommand, string, Table } from "dynamodb-toolbox";
+import { any, Entity, item, number, PutItemCommand, QueryCommand, string, Table } from "dynamodb-toolbox";
 import { PyABSAProducedEvent, RawDataProducedEvent } from "./parser";
 
 const ddbClient = new DynamoDBClient()
@@ -100,6 +100,7 @@ export const saveRedditDataDDB = async (dataProduced: RawDataProducedEvent) => {
 		}).options({ returnValues: 'ALL_OLD' }).send()
 }
 
+// Persist a topic itself
 export const saveTopic = async (topicId: string) => {
 	await TopicEntity.build(PutItemCommand)
 		.item({
@@ -107,6 +108,8 @@ export const saveTopic = async (topicId: string) => {
 		}).options({ returnValues: 'ALL_OLD' }).send()
 }
 
+// Persist a relation TOPIC -> DATA
+// as well as confidence and sentiment
 export const saveTopicDataRelation = async (topicId: string, dataId: string, confidence: number, sentiment: number) => {
 	await TopicToRawDataEntity.build(PutItemCommand)
 		.item({
@@ -116,4 +119,15 @@ export const saveTopicDataRelation = async (topicId: string, dataId: string, con
 			sentiment,
 			inferenceTimestamp: new Date().toISOString()
 		}).options({ returnValues: 'ALL_OLD' }).send()
+}
+
+export const getDataByTopic = async (topicId: string) => {
+  const r  = await QuickSaveTable.build(QueryCommand)
+  .entities(TopicToRawDataEntity, TopicEntity)
+  .query({partition: `TOPIC#${topicId}`})
+  .send()
+  
+  // Might have to actually store the opposite relation...
+  console.log(r)
+  return r.Items
 }
