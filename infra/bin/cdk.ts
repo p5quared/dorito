@@ -5,17 +5,13 @@ import { TrawlerStack } from '../lib/trawler-stack';
 import { ReservoirStack } from '../lib/reservoir-stack';
 import { MinervaStack } from '../lib/minerva-stack';
 
-
-
 const app = new cdk.App();
 
 const rootStack = new OceanStack(app, 'Ocean')
 const vpc = rootStack.vpc;
 
-// Data Tap - Data Source
 const trawler = new TrawlerStack(app, 'Trawler', { vpc });
 
-// Data Reservoir - Data Sink
 const reservoirStack = new ReservoirStack(app, 'Reservoir', { vpc });
 
 const rawDataSavedEvent = reservoirStack.persist_topic(
@@ -30,6 +26,11 @@ const reservoirPyABSAQueue = reservoirStack.newPersistenceQueue(
 	'PyABSA'
 )
 
+const reservoirEmbedQueue = reservoirStack.newPersistenceQueue(
+	'../reservoir/embed.ts',
+	'reservoir.embed'
+)
+
 const minerva = new MinervaStack(app, 'Minerva', {
 	vpc,
 	dataSavedTopic: reservoirStack.snsTopic
@@ -39,4 +40,10 @@ minerva.createECSWorker(
 	'PYABSA',
 	rawDataSavedEvent,
 	reservoirPyABSAQueue
+)
+
+minerva.createECSWorker(
+	'EMBED',
+	'reservoir.keyword',
+	reservoirEmbedQueue
 )
