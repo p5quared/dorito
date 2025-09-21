@@ -5,6 +5,7 @@ import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as s3vector from 'cdk-s3-vectors';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
@@ -15,6 +16,8 @@ interface ReservoirStackProps extends StackProps {
 
 export class ReservoirStack extends Stack {
 	private readonly table: dynamodb.Table;
+	private readonly bucket: s3vector.Bucket;
+	private readonly bucketIndex: s3vector.Index;
 	public readonly snsTopic: sns.Topic;
 
 	constructor(scope: Construct, id: string, props: ReservoirStackProps) {
@@ -30,6 +33,18 @@ export class ReservoirStack extends Stack {
 			},
 			billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
 			removalPolicy: RemovalPolicy.DESTROY,
+		});
+
+		this.bucket = new s3vector.Bucket(this, 'ReservoirBucket', {
+			vectorBucketName: 'topics'
+		})
+
+		this.bucketIndex = new s3vector.Index(this, 'ReservoirBucketIndex', {
+			indexName: 'main',
+			vectorBucketName: this.bucket.vectorBucketName,
+			dataType: "float32",
+			dimension: 384,
+			distanceMetric: "cosine"
 		});
 
 		this.snsTopic = new sns.Topic(this, 'ReservoirTopic', {
@@ -53,6 +68,10 @@ export class ReservoirStack extends Stack {
 			description: 'Reservoir DynamoDB Table ARN',
 			exportName: `${id}-DDB-Table-ARN`,
 		});
+	}
+
+	createVectorBucket() {
+
 	}
 
 	// Filter example from AWS docs
@@ -91,6 +110,8 @@ export class ReservoirStack extends Stack {
 			environment: {
 				DYNAMODB_TABLE_NAME: this.table.tableName,
 				OUTPUT_SNS_TOPIC_ARN: this.snsTopic.topicArn,
+				VECTOR_BUCKET_NAME: this.bucket.vectorBucketName,
+				VECTOR_INDEX_NAME: this.bucketIndex.indexName,
 			},
 			runtime: lambda.Runtime.NODEJS_LATEST,
 		});
@@ -163,6 +184,7 @@ export class ReservoirStack extends Stack {
 		inputQueue.grantConsumeMessages(lambdaFunction);
 		this.table.grantWriteData(lambdaFunction);
 		this.snsTopic.grantPublish(lambdaFunction);
+		this.bucketIndex.grantWrite(lambdaFunction);
 
 		lambdaFunction.addEventSource(
 			new lambdaEventSources.SqsEventSource(inputQueue, {
