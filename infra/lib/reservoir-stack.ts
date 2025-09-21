@@ -1,4 +1,5 @@
 import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
+import * as ecr_assets from 'aws-cdk-lib/aws-ecr-assets';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
@@ -8,6 +9,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as s3vector from 'cdk-s3-vectors';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as nodejs from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 
 interface ReservoirStackProps extends StackProps {
@@ -51,8 +53,6 @@ export class ReservoirStack extends Stack {
 			topicName: 'ReservoirTopic',
 		})
 
-		this.createFrontendHandler('similar_topics.ts');
-
 		new CfnOutput(this, 'SNSTopicArn', {
 			value: this.snsTopic.topicArn,
 			description: 'Reservoir SNS Topic ARN',
@@ -72,24 +72,37 @@ export class ReservoirStack extends Stack {
 		});
 	}
 
-	createFrontendHandler(handlerName: string) {
-		const lambdaFunction = new nodejs.NodejsFunction(this, `${handlerName}-Lambda`, {
-			entry: '../reservoir/frontend/' + handlerName,
-			timeout: Duration.seconds(10),
-			memorySize: 128,
+	public createFrontendHandler(dockerImagePath: string, uniqueId: string) {
+		const lambdaFunction = new lambda.Function(this, `${uniqueId}-Lambda`, {
+			code: lambda.Code.fromAssetImage(dockerImagePath, {
+				platform: ecr_assets.Platform.LINUX_AMD64,
+			}),
+			handler: lambda.Handler.FROM_IMAGE,
+			timeout: Duration.seconds(30),
+			architecture: lambda.Architecture.X86_64,
+			memorySize: 512,
 			environment: {
 				DYNAMODB_TABLE_NAME: this.table.tableName,
 				OUTPUT_SNS_TOPIC_ARN: this.snsTopic.topicArn,
 				VECTOR_BUCKET_NAME: this.bucket.vectorBucketName,
 				VECTOR_INDEX_NAME: this.bucketIndex.indexName,
 			},
-			runtime: lambda.Runtime.NODEJS_LATEST,
-			bundling: {
-				externalModules: ['onnxruntime-node']
-			}
+			runtime: lambda.Runtime.FROM_IMAGE,
 		});
 
 		this.table.grantReadData(lambdaFunction);
+
+		lambdaFunction.addToRolePolicy(new iam.PolicyStatement({
+			effect: iam.Effect.ALLOW,
+			actions: [
+				's3vectors:QueryVectors',
+				's3vectors:GetVector',
+				's3vectors:DescribeIndex'
+			],
+			resources: [
+				`arn:aws:s3vectors:*:*:bucket/${this.bucket.vectorBucketName}/index/${this.bucketIndex.indexName}`
+			]
+		}));
 	}
 
 	// Filter example from AWS docs

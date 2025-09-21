@@ -14,6 +14,11 @@ const trawler = new TrawlerStack(app, 'Trawler', { vpc });
 
 const reservoirStack = new ReservoirStack(app, 'Reservoir', { vpc });
 
+reservoirStack.createFrontendHandler(
+  '../reservoir',
+  'similar'
+)
+
 const rawDataSavedEvent = reservoirStack.persist_topic(
 	trawler.dataTopic,
 	'../reservoir/index.ts',
@@ -27,7 +32,7 @@ const reservoirPyABSAQueue = reservoirStack.newPersistenceQueue(
 )
 
 const reservoirEmbedQueue = reservoirStack.newPersistenceQueue(
-	'../reservoir/embed.ts',
+	'../reservoir/embedding.ts',
 	'reservoir.embed'
 )
 

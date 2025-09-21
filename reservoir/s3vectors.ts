@@ -19,15 +19,15 @@ export const saveTopicVector = (vectorBucketName: string, indexName: string) => 
 }
 
 export const querySimilarVectorsBuilder = (vectorBucketName: string, indexName: string) => async (vector: number[]) => {
-  const cmd = new QueryVectorsCommand({
-	vectorBucketName,
-	indexName,
-	topK: 5,
-	queryVector: {
-	  float32: vector
-	}
-
-  })
-  const res =  await s3VectorsClient.send(cmd)
-  res.vectors?.forEach(v => console.log(v) )
+	const cmd = new QueryVectorsCommand({
+		vectorBucketName,
+		indexName,
+		topK: 5,
+		queryVector: {
+			float32: vector
+		}
+	})
+	const res = await s3VectorsClient.send(cmd)
+	res.vectors?.forEach(v => console.log(v))
+	return res.vectors
 }
