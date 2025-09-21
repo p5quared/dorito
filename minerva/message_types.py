@@ -1,5 +1,3 @@
-from typing import Iterable
-from fastembed.common.types import NumpyArray
 from pydantic import BaseModel
 from enum import Enum
 
@@ -29,8 +27,7 @@ class RawDataProducedEvent(BaseModel):
     data: RawData
 
 class KeyWordProducedEvent(BaseModel):
-    meta: EventMetadata
-    data: KeyWordResult
+    keyword: str
 
 class EmbeddingResult(BaseModel):
     keyword: str
