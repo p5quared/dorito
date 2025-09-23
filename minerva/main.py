@@ -33,11 +33,13 @@ def keyword_handler(body):
     for kw in kws_publishable:
         kw_publisher.publish(kw.model_dump_json())
 
+ew = EmbeddingWorker()
+
 @register_handler('EMBED')
 def embed_handler(body):
     kw_data = KeyWordProducedEvent(**body)
-    embedding = EmbeddingWorker().embed(kw_data.data.keyword)
-    embeddings_publishable = EmbeddingResult(keyword=kw_data.data.keyword, embedding=embedding)
+    embedding = ew.embed(kw_data.keyword)
+    embeddings_publishable = EmbeddingResult(keyword=kw_data.keyword, embedding=embedding)
     embed_publisher = MessagingInterfaceBuilder().with_region(AWS_REGION).with_queue_url(OUTPUT_QEUE_URL).build()
     embed_publisher.publish(embeddings_publishable.model_dump_json())
 
