@@ -122,12 +122,20 @@ export const saveTopicDataRelation = async (topicId: string, dataId: string, con
 }
 
 export const getDataByTopic = async (topicId: string) => {
-  const r  = await QuickSaveTable.build(QueryCommand)
-  .entities(TopicToRawDataEntity, TopicEntity)
-  .query({partition: `TOPIC#${topicId}`})
-  .send()
-  
-  // Might have to actually store the opposite relation...
-  console.log(r)
-  return r.Items
+	const r = await QuickSaveTable.build(QueryCommand)
+		.entities(TopicToRawDataEntity)
+		.query({ partition: `TOPIC#${topicId}` })
+		.send()
+
+	// Might have to actually store the opposite relation...
+	return r.Items
+}
+
+export const getBodyByDataId = async (dataId: string) => {
+	const r = await QuickSaveTable.build(QueryCommand)
+		.entities(DataEntity)
+		.query({ partition: `DATA#${dataId}` })
+		.options({ limit: 1, attributes: ['body'] })
+		.send()
+	return r.Items?.[0]?.body
 }

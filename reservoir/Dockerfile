@@ -15,4 +15,4 @@ RUN npm install typescript @types/node --no-save && \
     npm uninstall typescript @types/node
 
 # Set the CMD to your handler
-CMD ["dist/similar_topics.handler"]
+CMD ["dist/data.handler"]
