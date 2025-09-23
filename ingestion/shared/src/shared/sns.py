@@ -61,13 +61,10 @@ class SNSFacade(LoggingMixin, RedditDataSink):
     
     def make_event(self, body: RedditData) -> DataProducedEvent:
         meta = EventMeta(
-            correlation_id=get_correlation_id(body),
+            correlation_id=body.id,
             source_date=str(datetime.now())
         )
         return DataProducedEvent(
             meta=meta,
             data=body
         )
-
-def get_correlation_id(data: RedditData) -> str:
-    return f"RAW_DATA#{data.id}"
