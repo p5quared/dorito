@@ -1,6 +1,8 @@
 import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import * as ecr_assets from 'aws-cdk-lib/aws-ecr-assets';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as apigateway from 'aws-cdk-lib/aws-apigatewayv2';
+import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as sns from 'aws-cdk-lib/aws-sns';
@@ -73,7 +75,12 @@ export class ReservoirStack extends Stack {
 	}
 
 	public createFrontendHandler(dockerImagePath: string, uniqueId: string) {
-		const lambdaFunction = new lambda.Function(this, `${uniqueId}-Lambda`, {
+		const api = new apigateway.HttpApi(this, 'FrontendAPI', {
+			apiName: 'FrontendAPI',
+			description: 'This service serves the frontend.',
+		})
+
+		const similarDataFunction = new lambda.Function(this, `${uniqueId}-Lambda`, {
 			code: lambda.Code.fromAssetImage(dockerImagePath, {
 				platform: ecr_assets.Platform.LINUX_AMD64,
 			}),
@@ -90,9 +97,9 @@ export class ReservoirStack extends Stack {
 			runtime: lambda.Runtime.FROM_IMAGE,
 		});
 
-		this.table.grantReadData(lambdaFunction);
+		this.table.grantReadData(similarDataFunction);
 
-		lambdaFunction.addToRolePolicy(new iam.PolicyStatement({
+		similarDataFunction.addToRolePolicy(new iam.PolicyStatement({
 			effect: iam.Effect.ALLOW,
 			actions: [
 				's3vectors:QueryVectors',
@@ -103,6 +110,18 @@ export class ReservoirStack extends Stack {
 				`arn:aws:s3vectors:*:*:bucket/${this.bucket.vectorBucketName}/index/${this.bucketIndex.indexName}`
 			]
 		}));
+
+		api.addRoutes({
+			path: '/',
+			methods: [apigateway.HttpMethod.GET],
+			integration: new integrations.HttpLambdaIntegration('SimilarDataIntegration', similarDataFunction),
+		})
+
+		new CfnOutput(this, 'APIEndpoint', {
+			value: api.apiEndpoint,
+			description: 'Frontend API Endpoint',
+		});
+		return api;
 	}
 
 	// Filter example from AWS docs
@@ -136,7 +155,7 @@ export class ReservoirStack extends Stack {
 	) {
 		const lambdaFunction = new nodejs.NodejsFunction(this, `${uniqueId}-Lambda`, {
 			entry: handlerLocation,
-			timeout: Duration.seconds(10),
+			timeout: Duration.minutes(1),
 			memorySize: 128,
 			environment: {
 				DYNAMODB_TABLE_NAME: this.table.tableName,
@@ -152,11 +171,11 @@ export class ReservoirStack extends Stack {
 		});
 
 		const inputQueue = new sqs.Queue(this, `${uniqueId}-Queue`, {
-			visibilityTimeout: Duration.minutes(1),
+			visibilityTimeout: Duration.minutes(3),
 			retentionPeriod: Duration.days(14),
 			deadLetterQueue: {
 				queue: dlq,
-				maxReceiveCount: 1,
+				maxReceiveCount: 3,
 			},
 		});
 
