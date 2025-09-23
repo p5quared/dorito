@@ -16,7 +16,7 @@ const reservoirStack = new ReservoirStack(app, 'Reservoir', { vpc });
 
 reservoirStack.createFrontendHandler(
   '../reservoir',
-  'similar'
+  'data'
 )
 
 const rawDataSavedEvent = reservoirStack.persist_topic(
