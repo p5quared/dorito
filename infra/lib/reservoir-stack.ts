@@ -112,9 +112,9 @@ export class ReservoirStack extends Stack {
 		}));
 
 		api.addRoutes({
-			path: '/',
+			path: '/api/v1/data',
 			methods: [apigateway.HttpMethod.GET],
-			integration: new integrations.HttpLambdaIntegration('SimilarDataIntegration', similarDataFunction),
+			integration: new integrations.HttpLambdaIntegration('data', similarDataFunction),
 		})
 
 		new CfnOutput(this, 'APIEndpoint', {
